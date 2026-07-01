@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DunkHer</title>
+<style>
+  :root {
+    --bg: #031a2e; --bg2: #072540; --panel: #0e3a5c;
+    --ink: #e8f4fc; --muted: #5b9dc0; --accent: #4fc3f7;
+    --good: #69f0ae; --bad: #ef9a9a;
+    --beam: #c9a36b; --line: #e8f4fc; --hair: #f4d03f; --skirt: #4fc3f7;
+  }
+
+  [data-theme="navy"] {
+    --bg: #091628; --bg2: #0e2040; --panel: #163060;
+    --ink: #e0ecff; --muted: #6a90b8; --accent: #5ab4ff;
+    --beam: #c9a36b; --line: #e0ecff; --hair: #f4a93c; --skirt: #5ab4ff;
+  }
+  [data-theme="forest"] {
+    --bg: #0c1e10; --bg2: #132918; --panel: #1c3c22;
+    --ink: #e4f5e8; --muted: #72b078; --accent: #65d87f;
+    --beam: #c9a36b; --line: #e4f5e8; --hair: #f4a93c; --skirt: #65d87f;
+  }
+  [data-theme="midnight"] {
+    --bg: #090910; --bg2: #10101c; --panel: #1a1a2c;
+    --ink: #cdd6f4; --muted: #7a7f9c; --accent: #c8a6f7;
+    --beam: #c9a36b; --line: #cdd6f4; --hair: #f4a93c; --skirt: #c8a6f7;
+  }
+
+  /* Dunk tank SVG parts */
+  .tank-wall { stroke: var(--line); stroke-width: 3; fill: none; stroke-linejoin: round; }
+  .water-fill { fill: #1565c0; }
+  .water-shine { fill: #1976d2; opacity: 0.5; }
+  .seat-plank { fill: var(--beam); stroke: none; rx: 2; }
+  .target-ring  { stroke: #f44336; stroke-width: 2.5; fill: none; }
+  .target-bull  { fill: #f44336; }
+  .target-white { fill: white; }
+
+  /* Dunk animation */
+  @keyframes dunk-fall {
+    0%   { transform: translateY(0) rotate(0deg);   opacity: 1; }
+    25%  { transform: translateY(10px) rotate(8deg); opacity: 1; }
+    70%  { transform: translateY(52px) rotate(4deg); opacity: 0.85; }
+    100% { transform: translateY(72px);              opacity: 0; }
+  }
+  .person-group.dunked {
+    transform-box: fill-box;
+    transform-origin: center bottom;
+    animation: dunk-fall 0.9s cubic-bezier(0.4,0,1,1) forwards;
+  }
+  @keyframes splash-anim {
+    0%   { opacity: 0; transform: scale(0.2); }
+    45%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.6); }
+  }
+  .splash-group { display: none; }
+  .splash-group.show {
+    display: block;
+    transform-box: fill-box;
+    transform-origin: center center;
+    animation: splash-anim 0.9s 0.55s ease-out forwards;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: radial-gradient(1200px 800px at 50% -10%, var(--bg2), var(--bg));
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  .wrap {
+    max-width: 880px; margin: 0 auto; padding: 24px 18px 48px;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  h1 {
+    margin: 0; font-size: 40px; letter-spacing: 6px;
+    text-transform: uppercase; font-weight: 800;
+  }
+  h1 .swing { color: var(--accent); }
+  .sub { color: var(--muted); margin: 4px 0 0; font-size: 14px; }
+
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; flex-wrap: wrap; margin: 18px 0 10px;
+  }
+  .stats { display: flex; gap: 18px; font-size: 14px; color: var(--muted); }
+  .stats b { color: var(--ink); font-size: 16px; }
+  .picks { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .picks-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .pick-lbl { color: var(--muted); font-size: 14px; white-space: nowrap; }
+  select, button {
+    font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid #6a4675; border-radius: 8px;
+    padding: 8px 12px; cursor: pointer;
+  }
+  select:hover, button:hover { border-color: var(--accent); }
+
+  .game {
+    display: grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: start;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 22px; margin-top: 8px;
+  }
+  @media (max-width: 720px) { .game { grid-template-columns: 1fr; } }
+
+  .stage { display: flex; flex-direction: column; align-items: center; }
+  svg { width: 280px; height: 300px; }
+  .part { opacity: 0; transition: opacity .25s ease; }
+  .part.show { opacity: 1; }
+  .gallows { stroke: var(--beam); stroke-width: 8; stroke-linecap: round; fill: none; }
+  .body { stroke: var(--line); stroke-width: 4; stroke-linecap: round; fill: none; }
+  .head { stroke: var(--line); stroke-width: 4; fill: none; }
+  .hair { stroke: var(--hair); stroke-width: 6; stroke-linecap: round; fill: none; }
+  .dress { stroke: var(--skirt); stroke-width: 4; fill: rgba(255,143,200,0.30); stroke-linejoin: round; }
+
+
+  .man-body { stroke: var(--line); stroke-width: 4; stroke-linecap: round; fill: none; }
+  .man-head { stroke: var(--line); stroke-width: 4; fill: none; }
+  .man-bow  { fill: var(--accent); stroke: none; }
+  .man-belt { fill: var(--beam);   stroke: none; }
+  .man-hat  { fill: var(--line);   stroke: none; }
+
+  .status { margin-top: 8px; font-size: 16px; min-height: 24px; text-align: center; }
+  .status.win { color: var(--good); font-weight: 700; }
+  .status.lose { color: var(--bad); font-weight: 700; }
+
+  .right { display: flex; flex-direction: column; gap: 18px; }
+
+  .word-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .word {
+    display: flex; flex-wrap: wrap; gap: 10px 14px; justify-content: center;
+    font-size: 34px; font-weight: 700; letter-spacing: 2px; min-height: 48px;
+  }
+  .def-tip {
+    display: none; position: absolute; top: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel); border: 1px solid #6a4675; border-radius: 10px;
+    padding: 10px 14px; font-size: 13px; color: var(--muted); line-height: 1.6;
+    max-width: 280px; width: max-content; text-align: left; z-index: 20;
+    pointer-events: none;
+  }
+  .def-tip em { color: var(--accent); font-style: italic; }
+  .word-wrap:hover .def-tip,
+  .word-wrap.def-open .def-tip { display: block; }
+  .word .gap { width: 18px; }
+  .word .slot {
+    width: 30px; text-align: center; border-bottom: 4px solid var(--muted);
+    line-height: 1.1;
+  }
+  .word .slot.filled { border-bottom-color: var(--accent); }
+  .word .slot.missed { color: var(--bad); }
+
+  .wrong {
+    text-align: center; color: var(--muted); font-size: 14px; min-height: 20px;
+  }
+  .wrong b { color: var(--bad); letter-spacing: 3px; font-size: 18px; }
+
+  .keyboard {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px;
+  }
+  @media (max-width: 720px) { .keyboard { grid-template-columns: repeat(7, 1fr); } }
+  .key {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; height: 44px;
+    font-size: 18px; font-weight: 700; border-radius: 10px;
+    background: var(--panel); border: 1px solid #6a4675; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+    transition: transform .05s ease, background .15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .key:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+  .key:disabled { cursor: default; opacity: .55; }
+  .key.correct { background: var(--good); color: #0c2b20; border-color: var(--good); }
+  .key.incorrect { background: var(--bad); color: #3a0c0c; border-color: var(--bad); }
+
+  .controls { display: flex; gap: 12px; justify-content: center; margin-top: 6px; }
+  .controls button.primary { background: var(--accent); color: #3a0c28; border-color: var(--accent); font-weight: 700; }
+
+  /* Speed mode */
+  .speed-btn {
+    font: inherit; color: var(--ink); background: var(--panel);
+    border: 1px solid #6a4675; border-radius: 8px;
+    padding: 8px 12px; cursor: pointer; touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent; white-space: nowrap;
+  }
+  .speed-btn.on { background: #7a3a00; border-color: #f4a93c; color: #f4a93c; }
+  .speed-btn:hover { border-color: var(--accent); }
+  .speed-dur {
+    display: flex; align-items: center; gap: 6px;
+  }
+  input[type=range].spd {
+    -webkit-appearance: none; appearance: none;
+    width: 80px; height: 4px; border-radius: 2px;
+    background: #6a4675; outline: none; cursor: pointer; border: none; padding: 0;
+  }
+  input[type=range].spd::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: #f4a93c; cursor: pointer;
+  }
+  input[type=range].spd::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #f4a93c; cursor: pointer; border: none;
+  }
+  .timer-wrap { display: none; }
+  .timer-wrap.active { display: block; }
+  .timer-bar-bg {
+    height: 10px; background: var(--panel); border-radius: 5px; overflow: hidden;
+  }
+  .timer-bar {
+    height: 100%; width: 100%; border-radius: 5px;
+    background: var(--good); transition: width 0.25s linear, background 0.4s;
+  }
+  .timer-bar.warn   { background: #f4a93c; }
+  .timer-bar.danger { background: var(--bad); }
+  .timer-label {
+    text-align: center; font-size: 13px; color: var(--muted); margin-top: 3px;
+  }
+
+  /* Audio controls */
+  .audio-bar {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .mute-btn {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: var(--panel); border: 1px solid #6a4675;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    padding: 0;
+  }
+  .mute-btn:hover { border-color: var(--accent); }
+  input[type=range].vol {
+    -webkit-appearance: none; appearance: none;
+    width: 90px; height: 4px; border-radius: 2px;
+    background: #6a4675; outline: none; cursor: pointer;
+    border: none; padding: 0;
+  }
+  input[type=range].vol::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--accent); cursor: pointer;
+  }
+  input[type=range].vol::-moz-range-thumb {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; border: none;
+  }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 22px; }
+
+  /* Settings panel helpers */
+  .sett-char-btn {
+    flex: 1; padding: 8px 12px; border-radius: 8px; font: inherit;
+    background: var(--panel); border: 1px solid #6a4675; color: var(--muted);
+    cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  .sett-char-btn.active { background: var(--accent); color: #3a0c28; border-color: var(--accent); font-weight: 700; }
+  .sett-char-btn:hover:not(.active) { border-color: var(--accent); }
+  .sett-theme-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 3px solid transparent;
+    cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+  }
+  .sett-theme-btn.active { border-color: var(--accent); }
+  .sett-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .win-log { max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 6px 8px; }
+  .log-entry {
+    font-size: 12px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-win  { color: var(--good); font-weight: 700; }
+  .log-loss { color: var(--bad);  font-weight: 700; }
+  .log-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px 0; }
+  .sett-about-btn {
+    width: 100%; padding: 10px; font: inherit; border-radius: 8px;
+    background: var(--panel); border: 1px solid #6a4675; color: var(--ink);
+    cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .sett-about-btn:hover { border-color: var(--accent); }
+  .settings-btn {
+    position: absolute; top: 24px; right: 18px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--panel); border: 1px solid #6a4675;
+    color: var(--accent); font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    padding: 0;
+  }
+  .settings-btn:hover { border-color: var(--accent); }
+
+  /* Modal overlay */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(20, 10, 24, 0.82); z-index: 100;
+    align-items: center; justify-content: center; padding: 18px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid #6a4675;
+    border-radius: 18px; padding: 28px 24px 24px;
+    max-width: 480px; width: 100%; max-height: 88vh;
+    overflow-y: auto; position: relative;
+  }
+  .modal h2 {
+    margin: 0 0 18px; font-size: 22px; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: none; color: var(--muted);
+    font-size: 22px; cursor: pointer; padding: 4px 8px;
+    line-height: 1; border-radius: 6px;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .modal-close:hover { color: var(--ink); }
+  .info-section { margin-bottom: 20px; }
+  .info-section:last-child { margin-bottom: 0; }
+  .info-label {
+    font-size: 12px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+  }
+  .info-section p { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .info-section p b { color: var(--ink); }
+  .info-divider {
+    border: none; border-top: 1px solid rgba(255,255,255,0.08);
+    margin: 18px 0;
+  }
+</style>
+</head>
+<body>
+<button class="settings-btn" id="settingsBtn" title="Settings">⚙</button>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <button class="modal-close" id="settingsClose">✕</button>
+    <h2>Settings</h2>
+
+    <div class="info-section">
+      <div class="info-label">Character</div>
+      <div class="sett-row">
+        <button class="sett-char-btn active" id="settHer">👩 DunkHer</button>
+        <button class="sett-char-btn" id="settMan">👨 DunkMan</button>
+      </div>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div class="info-label">Background Theme</div>
+      <div class="sett-row">
+        <button class="sett-theme-btn active" data-theme="" style="background:#2a1b30;" title="Purple"></button>
+        <button class="sett-theme-btn" data-theme="navy" style="background:#091628;" title="Navy"></button>
+        <button class="sett-theme-btn" data-theme="forest" style="background:#0c1e10;" title="Forest"></button>
+        <button class="sett-theme-btn" data-theme="midnight" style="background:#090910;" title="Midnight"></button>
+        <span class="pick-lbl" id="themeLabel">Purple</span>
+      </div>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div class="info-label">Sound</div>
+      <div class="sett-row">
+        <button class="mute-btn" id="muteBtn" title="Toggle music">🔊</button>
+        <input type="range" class="vol" id="volSlider" min="0" max="1" step="0.05" value="0.4">
+      </div>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div class="info-label" style="margin-bottom:0;">Win Log</div>
+        <button id="clearLog" style="font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;background:var(--panel);border:1px solid #6a4675;color:var(--muted);cursor:pointer;touch-action:manipulation;">Clear</button>
+      </div>
+      <div class="win-log" id="winLog"><div class="log-empty">No games logged yet.</div></div>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <button class="sett-about-btn" id="settAbout">ⓘ How to Play</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="modal-close" id="modalClose">✕</button>
+    <h2>How to Play DunkHer</h2>
+
+    <div class="info-section">
+      <div class="info-label">The Game</div>
+      <p>Guess the hidden word one letter at a time. Each wrong guess adds a piece to the figure sitting on the dunk tank. Reveal the full word before all <b>9 pieces</b> appear — Head, Pigtails (×2), Body, Arms (×2), Skirt, Legs (×2) — or they get dunked!</p>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div class="info-label">Category</div>
+      <p>Choose the theme for your word:<br>
+        <b>Animals</b> — creatures great and small<br>
+        <b>Countries</b> — nations of the world<br>
+        <b>Food &amp; Drink</b> — from ingredients to dishes<br>
+        <b>Science</b> — elements, concepts, and vocabulary<br>
+        <b>Around the House</b> — furniture, tools, and everyday items<br>
+        <b>🎲 Random (online)</b> — fetches a real random word from the internet. Requires a connection.</p>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div class="info-label">Mode</div>
+      <p><b>Easy</b> — picks any word from the selected category.<br>
+        <b>Hard</b> — avoids common letters. The letters <b>R, S, T, L, N,</b> and <b>E</b> are the most frequent in English — in Hard mode, words containing the fewest of these are chosen, so your usual go-to guesses won't help much.</p>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div class="info-label">Word Length</div>
+      <p>Filter words to a specific letter count — from <b>3</b> up to <b>12</b> — or leave it on <b>Any</b> to let the game choose freely. Shorter words are trickier; longer words give you more letters to work with.</p>
+    </div>
+
+    <hr class="info-divider">
+
+    <div class="info-section">
+      <div class="info-label">Controls</div>
+      <p><b>New Word</b> — start a fresh round at any time.<br>
+        <b>Give Up</b> — reveal the answer and end the current round.<br>
+        On desktop you can also press any <b>letter key</b> to guess, and <b>Enter</b> to start a new word.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header>
+    <h1>Dunk<span class="swing" id="titleChar">Her</span></h1>
+    <p class="sub" id="subtitle">Guess the word — each wrong letter puts her closer to the tank. Nine wrong guesses and she's dunked!</p>
+  </header>
+
+  <audio id="bgMusic" src="music.mp3" loop preload="auto"></audio>
+
+  <div class="topbar">
+    <div class="stats">
+      <div>Wins: <b id="wins">0</b></div>
+      <div>Losses: <b id="losses">0</b></div>
+      <div>Misses left: <b id="left">9</b></div>
+    </div>
+    <div class="picks">
+      <div class="picks-row">
+        <label for="cat" class="pick-lbl">Category</label>
+        <select id="cat"></select>
+        <label for="mode" class="pick-lbl">Mode</label>
+        <select id="mode">
+          <option value="easy">Easy</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div class="picks-row">
+        <label for="len" class="pick-lbl">Length</label>
+        <select id="len">
+          <option value="0">Any</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+        </select>
+        <label class="pick-lbl">Speed</label>
+        <button class="speed-btn" id="speedToggle">⚡ Off</button>
+        <div class="speed-dur" id="speedDur" style="display:none;">
+          <input type="range" class="spd" id="speedSlider" min="5" max="20" value="5">
+          <span id="speedVal" style="color:var(--muted);font-size:13px;min-width:24px;">5s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game">
+    <div class="stage">
+      <!-- DunkHer figure -->
+      <svg id="svgHer" viewBox="0 0 200 220" aria-label="DunkHer dunk tank">
+
+        <!-- Tank frame — always visible -->
+        <!-- Poles -->
+        <line class="gallows" x1="42" y1="20" x2="42" y2="143"/>
+        <line class="gallows" x1="158" y1="20" x2="158" y2="143"/>
+        <!-- Top crossbar -->
+        <line class="gallows" x1="42" y1="20" x2="158" y2="20"/>
+        <!-- Seat plank -->
+        <rect class="seat-plank" x="68" y="87" width="64" height="7" rx="2"/>
+
+        <!-- Dunk tank tub -->
+        <rect class="tank-wall" x="18" y="143" width="164" height="68" rx="5"/>
+        <!-- Water -->
+        <rect class="water-fill" x="22" y="150" width="156" height="57" rx="3"/>
+        <rect class="water-shine" x="22" y="150" width="156" height="10" rx="3"/>
+
+        <!-- Bullseye target (right of frame) -->
+        <circle class="target-white" cx="178" cy="91" r="14"/>
+        <circle class="target-ring"  cx="178" cy="91" r="14"/>
+        <circle class="target-white" cx="178" cy="91" r="9"/>
+        <circle class="target-ring"  cx="178" cy="91" r="9"/>
+        <circle class="target-bull"  cx="178" cy="91" r="4"/>
+
+        <!-- Person (DunkHer) — revealed one part per wrong guess -->
+        <g class="person-group" id="personGroupHer">
+          <circle class="head part" id="p1" cx="100" cy="66" r="16"/>               <!-- 1 Head -->
+          <path   class="hair part" id="p2" d="M88 58 Q70 64 76 85"/>               <!-- 2 Left pigtail -->
+          <path   class="hair part" id="p3" d="M112 58 Q130 64 124 85"/>            <!-- 3 Right pigtail -->
+          <line   class="body part" id="p4" x1="100" y1="82" x2="100" y2="91"/>    <!-- 4 Body (sitting) -->
+          <line   class="body part" id="p5" x1="100" y1="86" x2="76" y2="104"/>    <!-- 5 Left arm -->
+          <line   class="body part" id="p6" x1="100" y1="86" x2="124" y2="104"/>   <!-- 6 Right arm -->
+          <polygon class="dress part" id="p7" points="100,92 82,126 118,126"/>      <!-- 7 Skirt -->
+          <line   class="body part" id="p8" x1="91" y1="126" x2="83" y2="145"/>    <!-- 8 Left leg -->
+          <line   class="body part" id="p9" x1="109" y1="126" x2="117" y2="145"/>  <!-- 9 Right leg -->
+        </g>
+
+        <!-- Splash (shown on dunk) -->
+        <g class="splash-group" id="splashGroupHer">
+          <ellipse cx="100" cy="150" rx="38" ry="9" fill="none" stroke="#4fc3f7" stroke-width="2.5"/>
+          <line x1="73"  y1="150" x2="64"  y2="134" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="86"  y1="147" x2="80"  y2="130" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="100" y1="146" x2="100" y2="128" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="114" y1="147" x2="120" y2="130" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="127" y1="150" x2="136" y2="134" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <!-- DunkMan figure -->
+      <svg id="svgMan" viewBox="0 0 200 220" aria-label="DunkMan dunk tank" style="display:none">
+
+        <!-- Tank frame — always visible -->
+        <line class="gallows" x1="42" y1="20" x2="42" y2="143"/>
+        <line class="gallows" x1="158" y1="20" x2="158" y2="143"/>
+        <line class="gallows" x1="42" y1="20" x2="158" y2="20"/>
+        <rect class="seat-plank" x="68" y="87" width="64" height="7" rx="2"/>
+
+        <!-- Dunk tank tub -->
+        <rect class="tank-wall" x="18" y="143" width="164" height="68" rx="5"/>
+        <rect class="water-fill" x="22" y="150" width="156" height="57" rx="3"/>
+        <rect class="water-shine" x="22" y="150" width="156" height="10" rx="3"/>
+
+        <!-- Bullseye -->
+        <circle class="target-white" cx="178" cy="91" r="14"/>
+        <circle class="target-ring"  cx="178" cy="91" r="14"/>
+        <circle class="target-white" cx="178" cy="91" r="9"/>
+        <circle class="target-ring"  cx="178" cy="91" r="9"/>
+        <circle class="target-bull"  cx="178" cy="91" r="4"/>
+
+        <!-- Person (DunkMan) — revealed one part per wrong guess -->
+        <g class="person-group" id="personGroupMan">
+          <circle class="man-head part" id="pm1" cx="100" cy="66" r="16"/>                <!-- 1 Head -->
+          <line   class="man-body part" id="pm2" x1="100" y1="82" x2="100" y2="94"/>     <!-- 2 Body (sitting) -->
+          <line   class="man-body part" id="pm3" x1="100" y1="86" x2="76" y2="106"/>     <!-- 3 Left arm -->
+          <line   class="man-body part" id="pm4" x1="100" y1="86" x2="124" y2="106"/>    <!-- 4 Right arm -->
+          <line   class="man-body part" id="pm5" x1="94"  y1="94" x2="86"  y2="128"/>    <!-- 5 Left leg -->
+          <line   class="man-body part" id="pm6" x1="106" y1="94" x2="114" y2="128"/>    <!-- 6 Right leg -->
+          <path   class="man-bow  part" id="pm7" d="M92,83 L100,89 L92,95 Z M108,83 L100,89 L108,95 Z"/> <!-- 7 Bow tie -->
+          <rect   class="man-belt part" id="pm8" x="84" y="82" width="32" height="6" rx="2"/>           <!-- 8 Swim trunks waistband -->
+          <path   class="man-hat  part" id="pm9" d="M82,48 L118,48 L118,45 L110,45 L110,34 L90,34 L90,45 L82,45 Z"/> <!-- 9 Hat -->
+        </g>
+
+        <!-- Splash (shown on dunk) -->
+        <g class="splash-group" id="splashGroupMan">
+          <ellipse cx="100" cy="150" rx="38" ry="9" fill="none" stroke="#4fc3f7" stroke-width="2.5"/>
+          <line x1="73"  y1="150" x2="64"  y2="134" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="86"  y1="147" x2="80"  y2="130" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="100" y1="146" x2="100" y2="128" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="114" y1="147" x2="120" y2="130" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="127" y1="150" x2="136" y2="134" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <div class="status" id="status">Pick a letter to begin.</div>
+    </div>
+
+    <div class="right">
+      <div class="word-wrap" id="wordWrap">
+        <div class="word" id="word"></div>
+        <div class="def-tip" id="defTip"></div>
+      </div>
+      <div class="timer-wrap" id="timerWrap">
+        <div class="timer-bar-bg"><div class="timer-bar" id="timerBar"></div></div>
+        <div class="timer-label" id="timerLabel"></div>
+      </div>
+      <div class="wrong" id="wrong">Wrong guesses: <b id="wrongList">—</b></div>
+      <div class="keyboard" id="keyboard"></div>
+      <div class="controls">
+        <button class="primary" id="newGame">New Word</button>
+        <button id="reveal" title="Give up this round">Give Up</button>
+      </div>
+    </div>
+  </div>
+
+  <footer id="footer">DunkHer • Head → Pigtails → Body → Arms → Skirt → Legs (9 pieces)</footer>
+  <footer style="text-align:center;color:var(--muted);font-size:12px;margin-top:8px;">
+    Created by Paul A.T. Ramey &nbsp;·&nbsp;
+    <a href="https://www.ksoldesigns.com" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">www.ksoldesigns.com</a>
+    &nbsp;·&nbsp; Potassium Solutions
+  </footer>
+</div>
+
+<script>
+const DEFS = {"ant":"tiny social insect that lives in underground colonies","bat":"nocturnal flying mammal that navigates by echolocation","bee":"winged insect that produces honey and pollinates flowers","cat":"small domesticated carnivorous mammal kept as a pet","cod":"large Atlantic food fish with firm white flesh","cow":"adult female bovine kept for milk and meat","dog":"domesticated carnivore and loyal human companion","eel":"snake-like fish that lives in rivers and oceans","elk":"large deer of North America and Europe with broad antlers","emu":"large flightless Australian bird with shaggy brown feathers","fox":"small cunning canine with a bushy tail and red fur","hen":"adult female chicken","owl":"nocturnal bird of prey with large forward-facing eyes","pig":"stout omnivorous farm animal with a curly tail","ram":"adult male sheep with curved horns","rat":"medium-sized rodent often found near human settlements","yak":"large shaggy-haired ox native to Central Asia","crab":"crustacean with a hard shell, claws, and ten legs","deer":"graceful hoofed mammal; males typically have antlers","dove":"gentle bird closely related to pigeons; symbol of peace","duck":"waterbird with webbed feet, a flat bill, and waterproof feathers","fawn":"a young deer; also a pale yellowish-brown color","fish":"aquatic vertebrate with fins, scales, and gills","frog":"small amphibian that leaps between water and land","goat":"sure-footed horned livestock related to sheep","hare":"swift mammal resembling a large rabbit, with long hind legs","hawk":"sharp-eyed bird of prey that hunts by day","ibis":"long-legged wading bird with a long curved bill","lamb":"young sheep under one year old","lion":"large African big cat; the male has a distinctive mane","mule":"sterile hybrid offspring of a horse and a donkey","pony":"a small horse breed, typically under 14.2 hands high","puma":"large wild cat of the Americas; also called mountain lion","swan":"large graceful waterbird with a very long neck","toad":"squat amphibian similar to a frog but with drier, warty skin","tuna":"large fast-swimming ocean fish popular for eating","wasp":"stinging winged insect related to bees and ants","wolf":"apex predator canine that hunts in family packs","bison":"large shaggy North American bovine; the American buffalo","civet":"small cat-like mammal of Africa and Asia with scent glands","crane":"tall wading bird with long legs and a trumpeting call","egret":"slender white wading bird related to herons","finch":"small seed-eating songbird with a stout conical beak","gecko":"small tropical lizard with sticky toe pads for climbing","goose":"large waterbird related to ducks; known for aggressive honking","heron":"tall wading bird that stands motionless while fishing","horse":"large hoofed mammal domesticated for riding and work","llama":"South American camelid used as a pack animal and for wool","moose":"the largest member of the deer family, with broad flat antlers","mouse":"tiny rodent with a pointed snout and long thin tail","quail":"small plump ground-dwelling game bird","raven":"large, highly intelligent all-black crow with a deep call","rhino":"large thick-skinned African or Asian mammal with one or two horns","robin":"small songbird with a distinctive orange-red breast","skunk":"black-and-white North American mammal that sprays a foul-smelling fluid","snail":"slow-moving mollusk that carries a spiral shell on its back","snake":"legless reptile with a long flexible body; some are venomous","squid":"ten-armed marine cephalopod that can squirt ink","tapir":"large pig-like mammal with a flexible prehensile snout","viper":"venomous snake with hinged hollow fangs","mole":"small burrowing mammal with velvety fur and tiny eyes","panda":"large black-and-white bear native to China that eats bamboo","lizard":"scaly four-legged reptile with a long tail","mackerel":"striped oily saltwater fish caught for food","elephant":"the largest land animal, with a prehensile trunk and ivory tusks","giraffe":"the tallest living animal, with an extremely elongated neck","kangaroo":"large Australian marsupial that hops on powerful hind legs","dolphin":"highly intelligent social marine mammal known for playfulness","penguin":"flightless seabird of the Southern Hemisphere that swims expertly","crocodile":"large semi-aquatic reptile with powerful jaws","butterfly":"winged insect with large colorful patterned wings","squirrel":"bushy-tailed tree-climbing rodent that hoards nuts for winter","rhinoceros":"massive thick-skinned mammal with one or two prominent horns","octopus":"eight-armed intelligent sea creature that can change color","leopard":"spotted big cat of Africa and Asia; an excellent climber","hedgehog":"small insectivore covered in short stiff spines for defense","flamingo":"tall wading bird famous for its pink feathers and one-legged stance","chimpanzee":"our closest living primate relative, native to African forests","porcupine":"large rodent covered in sharp protective quills","alligator":"large reptile related to crocodiles, found in the Americas","antelope":"swift hoofed mammal of Africa and Asia with slender horns","armadillo":"armored mammal with bony plates, native to the Americas","baboon":"large ground-dwelling African monkey with a dog-like muzzle","badger":"stocky burrowing omnivore with a distinctive striped face","barracuda":"long slender predatory fish with razor-sharp teeth","beaver":"semi-aquatic rodent famous for building dams with branches","buffalo":"large bovine mammal; in North America, the American bison","camel":"desert-adapted mammal with one or two humps storing fat","chameleon":"slow-moving lizard that changes color and has independently moving eyes","cheetah":"the fastest land animal, reaching 70 mph in short bursts","chinchilla":"small soft-furred South American rodent popular as a pet","cobra":"venomous snake that spreads a hood when threatened","cougar":"large wild cat of the Americas; also called mountain lion or puma","coyote":"wolf-like wild canine native to North America","dingo":"wild dog native to Australia, descended from domestic dogs","donkey":"domesticated hoofed mammal related to horses; used as a beast of burden","dragonfly":"fast-flying insect with two pairs of large transparent wings","eagle":"large powerful bird of prey with keen eyesight","ferret":"small domesticated carnivore related to weasels; popular pet","falcon":"swift diving bird of prey with long pointed wings","gazelle":"slender swift-running antelope of Africa and Asia","gerbil":"small desert-adapted rodent with long hind legs; popular pet","gibbon":"small agile ape with very long arms, native to Asian forests","goldfish":"small orange or gold freshwater fish kept as a pet","gorilla":"the largest living primate, native to African rainforests","grasshopper":"jumping insect with long hind legs that makes chirping sounds","hamster":"small chubby rodent with cheek pouches; popular pet","hippopotamus":"massive semi-aquatic African mammal; one of the largest land animals","hyena":"scavenging African carnivore known for its laughing call","iguana":"large tropical lizard with a crest of spines along its back","jaguar":"the largest big cat of the Americas with a spotted coat","jellyfish":"gelatinous marine animal with trailing stinging tentacles","koala":"tree-dwelling Australian marsupial that feeds on eucalyptus leaves","ladybug":"small round beetle with red or yellow spotted wing covers","lemur":"large-eyed primate native only to Madagascar","lobster":"prized marine crustacean with large claws; a luxury seafood","lynx":"medium-sized wild cat with tufted ears and a short tail","macaw":"large, brilliantly colored tropical parrot","mammoth":"extinct elephant-like Ice Age mammal with long curved tusks","manatee":"gentle large aquatic mammal; also called the sea cow","meerkat":"small social mongoose of southern Africa that stands sentinel","mongoose":"agile carnivore famous for its ability to kill venomous snakes","mosquito":"small biting fly that spreads diseases including malaria","narwhal":"Arctic whale with a long spiral ivory tusk","newt":"small semi-aquatic salamander found in ponds and woodland","ocelot":"small spotted wild cat of Central and South America","ostrich":"the world's largest bird; flightless but an extremely fast runner","otter":"playful semi-aquatic mammal that floats on its back","panther":"a black-coated leopard or jaguar","parrot":"colorful tropical bird capable of mimicking human speech","peacock":"male peafowl, famous for its spectacular iridescent tail fan","pelican":"large seabird with a distinctive pouch-like bill for scooping fish","platypus":"egg-laying semi-aquatic Australian mammal with a duck-like bill","puffin":"stocky seabird with a large colorful bill; nests in cliff burrows","python":"one of the world's largest snakes; kills prey by constriction","rabbit":"small mammal with long ears, a short tail, and strong hind legs","raccoon":"masked North American omnivore known for scavenging in bins","reindeer":"Arctic deer domesticated by indigenous peoples; also called caribou","salamander":"smooth-skinned amphibian with a long tail, related to newts","scorpion":"eight-legged arachnid with pincers and a venomous tail stinger","seahorse":"small upright-swimming fish where the male carries the young","seal":"flippered marine mammal that hauls out on rocks and beaches","shark":"large predatory fish with cartilage instead of bone","sloth":"extremely slow-moving tree-dwelling mammal of South America","sparrow":"small common brown songbird found worldwide near human habitats","starfish":"five-armed echinoderm of the sea floor; also called sea star","stingray":"flat cartilaginous fish with a venomous barbed tail spine","stork":"large white wading bird with a long red bill; a symbol of birth","swordfish":"large predatory ocean fish with a long flat bill","tarantula":"large hairy spider; intimidating but rarely dangerous to humans","termite":"wood-eating social insect that builds large mound nests","toucan":"tropical bird with an enormous colorful bill","turtle":"reptile with a bony or cartilaginous shell; can be aquatic or land-dwelling","vulture":"large scavenging bird with a bald head that feeds on carrion","walrus":"large Arctic marine mammal with long tusks and prominent whiskers","weasel":"small slender fast-moving carnivore with a flexible body","wolverine":"the largest land-dwelling mustelid; fierce and powerful for its size","wombat":"stocky burrowing Australian marsupial; produces cube-shaped droppings","woodpecker":"bird that drills into tree bark with its bill to find insects","zebra":"African equine with distinctive black-and-white stripes","canada":"the world's second largest country, north of the United States","brazil":"largest country in South America; home of the Amazon rainforest","australia":"continent and country in the Southern Hemisphere known for unique wildlife","portugal":"small nation on the western tip of Europe; a former seafaring empire","thailand":"Southeast Asian country known for temples, beaches, and street food","morocco":"North African country bordering the Sahara and the Atlantic Ocean","argentina":"large South American nation on the southern cone; tango homeland","switzerland":"landlocked Central European nation famous for mountains and neutrality","indonesia":"world's largest archipelago nation in Southeast Asia","ethiopia":"ancient East African nation; one of the oldest in the world","denmark":"Scandinavian kingdom that includes Greenland and the Faroe Islands","vietnam":"long narrow country in Southeast Asia along the South China Sea","mongolia":"vast landlocked nation between China and Russia, land of nomads","colombia":"South American country in the northwest corner; known for coffee","norway":"Scandinavian nation famous for fjords, Vikings, and the Northern Lights","afghanistan":"landlocked country in Central Asia, one of the world's oldest crossroads","albania":"small Balkan nation on the Adriatic Sea in southeastern Europe","algeria":"largest country in Africa by area, mostly covered by the Sahara","angola":"oil-rich country in southern Africa on the Atlantic coast","armenia":"small landlocked country in the South Caucasus region","austria":"landlocked Central European country known for Mozart and the Alps","bahamas":"archipelago of islands in the Caribbean; a popular tourist destination","bangladesh":"densely populated South Asian country on the Bay of Bengal","belgium":"small Western European country known for chocolate, waffles, and NATO","bolivia":"landlocked South American country with part of the Amazon basin","botswana":"landlocked southern African country known for the Kalahari and safaris","bulgaria":"Balkan country on the Black Sea coast in southeastern Europe","cambodia":"Southeast Asian country home to the ancient Angkor Wat temple complex","cameroon":"Central African country often called 'Africa in miniature' for its diversity","chile":"long narrow country stretching down South America's western coast","china":"world's most populous country and largest country in East Asia","croatia":"Adriatic nation in southeastern Europe with a stunning coastline","cuba":"large Caribbean island nation and the only communist country in the Americas","cyprus":"island nation in the eastern Mediterranean Sea","ecuador":"South American country on the equator; includes the Galápagos Islands","egypt":"North African country home to the Nile, pyramids, and pharaohs","estonia":"small Baltic state in Northern Europe; one of the world's most digitally advanced","finland":"Nordic country covered by forests and thousands of lakes","france":"large Western European nation known for art, cuisine, and the Eiffel Tower","georgia":"country at the crossroads of Europe and Asia in the Caucasus region","germany":"Central European economic powerhouse and the EU's most populous country","ghana":"West African nation and one of Africa's most stable democracies","greece":"Mediterranean country known as the birthplace of democracy and Western philosophy","guatemala":"Central American country with a rich Maya heritage","honduras":"Central American country known for Caribbean coastline and ancient Maya ruins","hungary":"landlocked Central European country on the Danube River","iceland":"volcanic island nation in the North Atlantic; land of geysers and glaciers","india":"world's most populous country and a major South Asian civilization","iran":"large Middle Eastern country with one of the world's oldest civilizations","iraq":"Middle Eastern country between the Tigris and Euphrates, the ancient cradle of civilization","ireland":"island nation in the North Atlantic; known for green landscapes and Celtic culture","israel":"small Middle Eastern country on the eastern shore of the Mediterranean","italy":"Mediterranean peninsula nation known for art, history, food, and fashion","jamaica":"Caribbean island nation known for reggae music, rum, and white sand beaches","japan":"island nation in East Asia known for technology, tradition, and cuisine","jordan":"Middle Eastern kingdom bordering Israel, Iraq, and Saudi Arabia","kazakhstan":"the world's largest landlocked country, spanning Central Asia","kenya":"East African country known for safaris, the Great Rift Valley, and marathon runners","kuwait":"small but wealthy Gulf state on the Arabian Peninsula","latvia":"Baltic state on the eastern shore of the Baltic Sea in Northern Europe","lebanon":"small Middle Eastern country on the eastern Mediterranean coast","liberia":"West African nation founded by freed American slaves in the 19th century","libya":"large North African country with vast Sahara desert and Mediterranean coast","lithuania":"the southernmost and largest of the three Baltic states","luxembourg":"tiny but wealthy landlocked country in Western Europe","madagascar":"large island nation off the southeast coast of Africa with unique wildlife","malaysia":"Southeast Asian country comprising a peninsula and part of Borneo","mexico":"large North American country south of the United States","nepal":"small Himalayan kingdom home to Mount Everest and Buddhist monasteries","netherlands":"low-lying Western European nation famous for windmills, tulips, and cycling","nicaragua":"largest country in Central America between Honduras and Costa Rica","nigeria":"Africa's most populous country and largest economy in West Africa","pakistan":"South Asian nation created in 1947 with the second-largest Muslim population","panama":"Central American country connecting North and South America via the Panama Canal","paraguay":"landlocked South American country between Argentina and Brazil","peru":"South American country home to Machu Picchu and the Inca Empire","philippines":"archipelago of over 7,000 islands in Southeast Asia","poland":"large Central European country with a turbulent 20th-century history","romania":"Balkan country in southeastern Europe bordering the Black Sea","russia":"the world's largest country by area, spanning Europe and Asia","rwanda":"small landlocked country in East Africa known for gorilla trekking","senegal":"West African nation on the Atlantic coast; known for hospitality","serbia":"landlocked Balkan country in southeastern Europe","singapore":"tiny but wealthy city-state in Southeast Asia","slovakia":"landlocked Central European country that was once part of Czechoslovakia","slovenia":"small Central European country known for stunning Alpine scenery","somalia":"East African country on the Horn of Africa","spain":"southwestern European nation known for flamenco, bullfighting, and tapas","sweden":"Nordic country known for design, ABBA, and the Nobel Prize","tanzania":"East African country home to Kilimanjaro, Serengeti, and Zanzibar","tunisia":"small North African country where the Arab Spring began in 2011","turkey":"transcontinental country straddling Europe and Asia; home of Istanbul","uganda":"landlocked East African country known as the 'Pearl of Africa'","ukraine":"Eastern European country; the largest entirely within Europe","uruguay":"small but progressive South American country on the Rio de la Plata","uzbekistan":"Central Asian country home to ancient Silk Road cities like Samarkand","venezuela":"South American country with the world's largest proven oil reserves","yemen":"Middle Eastern country at the southern tip of the Arabian Peninsula","zambia":"landlocked southern African country home to Victoria Falls","zimbabwe":"landlocked southern African country home to the ruins of Great Zimbabwe","chad":"landlocked Central African country bordering the Sahara","fiji":"Melanesian archipelago nation in the South Pacific Ocean","laos":"landlocked Southeast Asian country on the Mekong River","mali":"large landlocked West African country home to ancient Timbuktu","oman":"Arabian Peninsula sultanate known for its dramatic desert landscape","togo":"small narrow West African country on the Gulf of Guinea","qatar":"small but enormously wealthy Gulf state on the Arabian Peninsula","samoa":"Polynesian island nation in the South Pacific Ocean","sudan":"northeast African country; the largest by area in Africa before 2011","syria":"Middle Eastern country in the Fertile Crescent with ancient Damascus","niger":"large landlocked West African country and the largest in West Africa","gabon":"Central African country mostly covered by equatorial rainforest","benin":"West African country known as the birthplace of the Vodun religion","haiti":"Caribbean island nation occupying the western third of Hispaniola","brunei":"tiny oil-rich sultanate on the island of Borneo in Southeast Asia","bhutan":"small Buddhist kingdom in the Himalayas that measures Gross National Happiness","guyana":"South American country on the Atlantic coast, culturally linked to the Caribbean","kosovo":"the newest country in Europe, declared independence from Serbia in 2008","malta":"small Mediterranean island nation south of Sicily","monaco":"the world's second smallest country, on the French Riviera","namibia":"southern African country known for the Namib Desert and red dunes of Sossusvlei","taiwan":"island nation in the western Pacific, a leading manufacturer of semiconductors","belarus":"landlocked Eastern European country; often called 'Europe's last dictatorship'","moldova":"small landlocked Eastern European country between Romania and Ukraine","montenegro":"small Adriatic nation in the western Balkans that became independent in 2006","mozambique":"southeast African country with a long Indian Ocean coastline","myanmar":"Southeast Asian country also known as Burma; home to over 100 ethnic groups","suriname":"small South American country on the Atlantic coast; former Dutch colony","tajikistan":"mountainous Central Asian country; the poorest former Soviet republic","turkmenistan":"Central Asian country with vast natural gas reserves and an authoritarian government","bahrain":"tiny island kingdom in the Persian Gulf, linked to Saudi Arabia by a causeway","comoros":"small archipelago nation off the east coast of Africa in the Indian Ocean","djibouti":"tiny East African nation at the entrance to the Red Sea","dominica":"Caribbean island nation known as the 'Nature Isle of the Caribbean'","grenada":"small Caribbean island nation known as the Spice Isle","lesotho":"small mountainous kingdom entirely surrounded by South Africa","maldives":"South Asian island nation in the Indian Ocean at risk of rising seas","mauritius":"island nation in the Indian Ocean east of Madagascar; a tourist paradise","palau":"Pacific island nation known for its incredible diving and marine biodiversity","seychelles":"archipelago of 115 islands in the Indian Ocean; a luxury honeymoon destination","vanuatu":"Melanesian archipelago in the South Pacific with active volcanoes","andorra":"tiny co-principality nestled in the Pyrenees mountains between France and Spain","eritrea":"East African country on the Red Sea that gained independence from Ethiopia in 1993","gambia":"the smallest mainland country in Africa, almost entirely surrounded by Senegal","guinea":"West African country on the Atlantic coast rich in bauxite","kyrgyzstan":"mountainous Central Asian country known for its nomadic culture","malawi":"landlocked southeast African country along Lake Malawi","mauritania":"large West African country mostly covered by the Sahara Desert","spaghetti":"long thin pasta traditionally served with tomato or meat sauce","avocado":"creamy green-fleshed tropical fruit used in guacamole and salads","pineapple":"large tropical fruit with sweet yellow flesh and a spiky exterior","chocolate":"sweet food made from roasted cacao beans; a beloved confection worldwide","cinnamon":"warm aromatic spice from the bark of a tropical tree","broccoli":"green vegetable with dense florets related to cabbage and cauliflower","sandwich":"filling placed between two slices of bread","espresso":"strong concentrated coffee made by forcing hot water through fine grounds","pancake":"thin flat cake made from batter and cooked in a pan","blueberry":"small round blue-purple berry with a sweet-tart flavor","cucumber":"long green vegetable with high water content, used in salads and pickling","lasagna":"baked Italian pasta dish layered with meat, cheese, and tomato sauce","mushroom":"fleshy spore-bearing fungus used widely in cooking","pretzel":"baked bread snack twisted into a distinctive knot shape","smoothie":"blended drink made from fruit, vegetables, and liquid","almond":"oval edible nut from the almond tree; popular snack and ingredient","apricot":"small golden-orange fruit with velvety skin and a sweet-tart flavor","artichoke":"edible thistle plant whose fleshy leaves and heart are eaten as vegetables","asparagus":"tender green shoots eaten as a spring vegetable","bacon":"cured and smoked pork belly, prized for its salty savory flavor","bagel":"dense ring-shaped bread roll boiled before baking; popular for breakfast","banana":"elongated yellow tropical fruit with sweet soft flesh","barbecue":"method of slow-cooking meat over charcoal or wood smoke; also the event","biscuit":"small baked bread roll; in the UK, a cookie-like sweet or savory snack","blackberry":"dark purple berry that grows on thorny canes","bratwurst":"German sausage made from pork or veal, typically grilled","burrito":"Mexican dish of filling wrapped in a large flour tortilla","cabbage":"round leafy vegetable with tightly packed pale green or red leaves","cantaloupe":"sweet orange-fleshed variety of muskmelon","cappuccino":"espresso topped with steamed and frothed milk","caramel":"smooth golden-brown confection made by heating sugar","carrot":"crisp orange root vegetable rich in beta-carotene","cashew":"kidney-shaped nut from a tropical tree; a popular snack","cauliflower":"vegetable with a dense white head of undeveloped flower buds","cheddar":"firm orange or yellow cow's milk cheese originally from England","cheesecake":"creamy dessert with a sweet cheese filling on a biscuit or pastry base","cherry":"small round stone fruit that ranges from sweet to tart","chickpea":"round beige legume used in hummus, curries, and salads","chowder":"thick creamy soup usually made with seafood or corn","cilantro":"fresh herb with bright green leaves; known as coriander outside North America","coconut":"large tropical fruit with hard brown shell, white flesh, and liquid inside","coleslaw":"salad of shredded raw cabbage with a creamy or vinegar dressing","cornbread":"quick bread made from cornmeal, popular in the American South","croissant":"buttery flaky crescent-shaped French pastry","cranberry":"small tart red berry used in juice, sauce, and baked goods","custard":"sweet thick sauce or dessert made from eggs and milk or cream","doughnut":"ring-shaped or filled fried dough confection often coated in sugar","dumpling":"small parcel of dough with savory or sweet filling, boiled or fried","eggplant":"large purple vegetable with spongy flesh; also called aubergine","enchilada":"Mexican dish of a tortilla rolled around meat and cheese with chili sauce","fettuccine":"flat wide pasta ribbons, traditionally served with cream sauce","grapefruit":"large citrus fruit with a tangy bitter-sweet flavor","guacamole":"dip or spread made from mashed avocado, lime, and seasoning","hamburger":"cooked ground beef patty served in a bun with toppings","hazelnut":"small round nut with a sweet mild flavor; used in chocolate spreads","honeydew":"large smooth-skinned melon with pale green sweet flesh","jalapeno":"moderately hot green chili pepper used in Mexican cuisine","ketchup":"sweet and tangy tomato sauce used as a condiment","lemonade":"chilled drink made from lemon juice, sugar, and water","lentil":"small flat edible legume that comes in green, red, or black varieties","lettuce":"leafy green vegetable used as the base of salads","macaroni":"short curved tubular pasta used in macaroni and cheese","mango":"large juicy tropical fruit with sweet orange flesh","marmalade":"jam made from citrus fruit peel and juice, often bitter-sweet","meatball":"ball of ground meat mixed with seasoning and often served with pasta","meringue":"light sweet confection made from whipped egg whites and sugar","molasses":"thick dark syrup that is a byproduct of refining cane sugar","mozzarella":"mild soft white Italian cheese that melts well on pizza","mustard":"pungent condiment made from ground mustard seeds","noodle":"strip or string of pasta or dough eaten in soups and stir-fries","oatmeal":"porridge made from rolled or ground oats; a popular breakfast","omelette":"dish of beaten eggs cooked in a pan, often with a savory filling","oregano":"aromatic herb widely used in Italian and Mediterranean cooking","pancetta":"Italian cured pork belly used in cooking and as a charcuterie","parmesan":"hard dry Italian cheese made from cow's milk and aged for 12 months or more","parsley":"fresh herb with bright green leaves used widely as a garnish and seasoning","peanut":"legume that grows underground; a popular snack and source of protein","pepperoni":"spicy cured pork and beef sausage; the most popular pizza topping in the US","pistachio":"small green nut with a slightly sweet flavor sold in its shell","popcorn":"puffed corn kernels, a popular snack eaten at cinemas","porridge":"warm dish made of oats or other grains cooked in milk or water","pudding":"sweet creamy dessert; in the UK, a general word for any dessert","pumpkin":"large round orange squash used in pies and Halloween decorations","quesadilla":"Mexican dish of a tortilla filled with cheese and grilled until melted","raspberry":"soft red berry made up of many tiny drupelets; tart and aromatic","ravioli":"square parcels of pasta dough filled with cheese, meat, or vegetables","rhubarb":"tart pink or green stalks used in pies and jams; the leaves are toxic","risotto":"creamy Italian rice dish slowly cooked in broth","rosemary":"fragrant evergreen herb used in cooking and as an ornamental plant","sausage":"ground meat mixed with spices and stuffed into a casing","spinach":"dark leafy green vegetable rich in iron and vitamins","strawberry":"sweet red heart-shaped berry with tiny seeds on its surface","tangerine":"small sweet easy-to-peel citrus fruit, a variety of mandarin orange","tomato":"technically a fruit but used as a vegetable; red, juicy, and versatile","tortilla":"thin flat bread made from corn or wheat flour, used in Mexican cuisine","turmeric":"bright yellow-orange spice from a root; key ingredient in curry","vanilla":"sweet flavoring from the pods of an orchid vine; used in desserts","waffle":"crisp batter cake with a grid pattern, cooked in a waffle iron","zucchini":"mild-flavored green summer squash used in savory and sweet dishes","pie":"baked dish with a pastry crust enclosing a sweet or savory filling","egg":"oval food laid by birds and reptiles; a key ingredient in cooking","jam":"sweet spread made by boiling crushed fruit with sugar","ham":"cured or smoked meat from the hind leg of a pig","tea":"hot drink brewed from dried leaves of the Camellia sinensis plant","rye":"cereal grain used to make bread, crackers, and whiskey","fig":"sweet pear-shaped fruit with edible seeds from the ficus tree","oat":"grain used for porridge, granola, and baked goods; high in fiber","nut":"hard-shelled seed or fruit of a tree; many varieties are edible","pea":"small round green seed eaten as a vegetable; grows in pods","yam":"starchy tuber similar to a sweet potato; a staple in many cultures","soup":"liquid dish made by simmering meat, vegetables, or legumes in broth","milk":"white liquid produced by mammals; a dietary staple for many people","rice":"staple grain that is the main food for more than half the world's population","bean":"edible seed or pod of leguminous plants; a staple in many cuisines","corn":"large grain crop; also called maize; eaten on the cob or processed into many products","kale":"curly dark leafy green vegetable rich in vitamins and antioxidants","lime":"small green citrus fruit with sharp acidic juice","mint":"aromatic herb with cooling menthol notes; used in drinks and desserts","pear":"sweet grainy-textured fruit with a distinctive narrow-top shape","plum":"small round stone fruit that ranges from yellow to dark purple","taco":"Mexican dish of a corn or wheat tortilla folded around a filling","tofu":"protein-rich food made from compressed soy milk curds","wine":"alcoholic drink made from fermented grape juice","beef":"meat from cattle; one of the most widely consumed meats in the world","brie":"soft creamy French cheese with a white rind, named after its region of origin","cake":"sweet baked dessert made from flour, sugar, eggs, and fat","chip":"thin crisp slice of potato fried until crunchy; also a small piece of chocolate","dill":"feathery herb with a distinctive flavor used in pickling and seafood dishes","kiwi":"small oval fruit with fuzzy brown skin and bright green flesh","leek":"long mild-flavored onion-like vegetable with wide flat leaves","naan":"leavened flatbread cooked in a tandoor oven; common in South Asian cuisine","okra":"green pod vegetable used as a thickener in soups and gumbos","salt":"mineral used to season and preserve food; essential to human health","sage":"aromatic herb with soft grey-green leaves; used in stuffing and sauces","soda":"carbonated drink sweetened with sugar or artificial sweeteners","sushi":"Japanese dish of vinegared rice combined with seafood, vegetables, or egg","bread":"staple baked food made from flour, water, and yeast","candy":"sweet confection made primarily from sugar; also called sweets","cocoa":"powder made from roasted cacao beans; the basis of chocolate and hot drinks","curry":"spiced dish originating in South Asia; can be a sauce or a spice blend","donut":"variant spelling of doughnut; ring-shaped or filled fried sweet dough","gravy":"sauce made from meat juices, often thickened with flour","honey":"sweet golden liquid made by bees from flower nectar","juice":"liquid extracted from fruit or vegetables","lemon":"bright yellow citrus fruit with sharp sour juice","mocha":"coffee drink flavored with chocolate; also a type of coffee","nacho":"tortilla chip typically topped with melted cheese and toppings","olive":"small oval fruit of the olive tree, eaten or pressed for oil","onion":"pungent bulb vegetable that makes your eyes water when cut","pasta":"Italian dough product in many shapes; cooked by boiling","pizza":"Italian flatbread topped with tomato sauce, cheese, and toppings","salsa":"spicy tomato and chili sauce; also a Latin dance style","scone":"lightly sweetened bread roll served with butter and jam at British high tea","steak":"thick cut of meat, usually beef, cooked by grilling or pan-frying","sugar":"sweet crystalline substance made from sugar cane or sugar beet","syrup":"thick sweet liquid made from sugar dissolved in water","toast":"bread browned by dry heat; a popular breakfast base","wafer":"thin light crisp biscuit used as a base for chocolate and ice cream","wheat":"cereal grain used to make flour for bread, pasta, and pastries","apple":"crisp round fruit in red, green, or yellow; used in pies and juice","berry":"small round juicy fruit; a broad term covering many types","cream":"rich fatty part of milk; used in coffee, sauces, and desserts","fudge":"rich sweet confection made from sugar, butter, and milk","grape":"small round fruit that grows in clusters; eaten fresh or used for wine","melon":"large round fruit with sweet watery flesh; includes watermelon and cantaloupe","peach":"soft juicy stone fruit with fuzzy orange-yellow skin","walnut":"wrinkled brain-shaped nut with a rich buttery flavor","yogurt":"thick creamy fermented dairy product made by culturing milk","molecule":"two or more atoms bonded together; the smallest unit of a compound","gravity":"the natural force that attracts objects toward each other; keeps us on Earth","electron":"negatively charged particle orbiting the nucleus of an atom","velocity":"the speed of an object in a given direction","photosynthesis":"process by which plants convert sunlight and carbon dioxide into food","telescope":"optical instrument for making distant objects appear closer","magnetism":"physical phenomenon produced by the motion of electric charges","ecosystem":"a community of living things interacting with their environment","chromosome":"thread-like structure in cells that carries genetic information","asteroid":"rocky body orbiting the sun, smaller than a planet","catalyst":"substance that speeds up a chemical reaction without being consumed","nucleus":"the dense central core of an atom, or the control center of a cell","spectrum":"the range of colors or wavelengths of electromagnetic radiation","friction":"resistance force when two surfaces rub against each other","enzyme":"protein that speeds up specific chemical reactions in living organisms","acceleration":"rate at which velocity changes over time","acid":"substance that donates protons and has a pH below 7","alkaline":"having a pH above 7; also called basic","amplitude":"the maximum displacement of a wave from its rest position","antibody":"protein produced by the immune system to fight specific pathogens","atmosphere":"the layer of gases surrounding a planet, held in place by gravity","atom":"the smallest unit of a chemical element that retains its properties","bacteria":"single-celled microorganisms without a nucleus; some cause disease","biology":"the scientific study of living organisms and life processes","buoyancy":"the upward force exerted on an object immersed in a fluid","capacitor":"electronic component that stores electrical energy in an electric field","carbon":"chemical element essential to all known life; atomic number 6","cell":"the basic structural and functional unit of all living organisms","chemistry":"the scientific study of matter, its properties, and how it changes","circuit":"a closed loop that allows electric current to flow","combustion":"rapid chemical reaction producing heat and light; burning","comet":"icy body from the outer solar system that develops a tail near the sun","compound":"substance formed when two or more elements are chemically bonded","condensation":"the process by which a gas turns into a liquid","conductor":"material that allows electricity or heat to flow through it easily","cytoplasm":"the gel-like substance filling a cell outside the nucleus","density":"mass per unit volume of a substance","diffusion":"the movement of particles from a region of high to low concentration","dinosaur":"large reptile that dominated Earth during the Mesozoic Era","electricity":"the flow of electric charge; a fundamental form of energy","element":"pure substance made of only one type of atom","energy":"the capacity to do work; comes in many forms including heat and light","entropy":"measure of disorder or randomness in a system; always increases","equilibrium":"a state of balance where forces or reactions cancel each other out","evolution":"process of change in heritable traits of populations over generations","evaporation":"process by which a liquid turns into a gas below boiling point","fossil":"preserved remains or traces of an ancient organism in rock","frequency":"the number of waves that pass a point in one second; measured in hertz","fungus":"kingdom of organisms including mushrooms, molds, and yeasts","galaxy":"a vast system of stars, gas, and dust held together by gravity","gene":"unit of heredity made of DNA that determines an organism's traits","genome":"the complete set of genetic material in an organism","glucose":"simple sugar that is the primary energy source for cells","helium":"lightest noble gas; second most abundant element in the universe","hydrogen":"lightest and most abundant chemical element in the universe","inertia":"tendency of an object to resist changes to its state of motion","insulator":"material that resists the flow of electricity or heat","ion":"atom or molecule with a net electric charge due to gaining or losing electrons","isotope":"variant of an element with the same protons but different neutrons","kinetic":"relating to or resulting from the motion of an object","laboratory":"room or building equipped for scientific research and experiments","magnet":"object that produces a magnetic field and attracts iron-based metals","mammal":"warm-blooded vertebrate with hair or fur that feeds young on milk","mass":"the amount of matter in an object; distinct from weight","membrane":"thin flexible layer acting as a boundary or filter in biology","metabolism":"all chemical processes that occur within a living organism to sustain life","meteor":"rock or metal that burns up in Earth's atmosphere as a shooting star","microscope":"instrument for magnifying objects too small to see with the naked eye","mineral":"naturally occurring inorganic solid with a defined chemical composition","mitochondria":"organelles in cells that produce energy; known as the powerhouse of the cell","momentum":"product of mass and velocity; a measure of an object's motion","neuron":"a nerve cell that transmits electrical and chemical signals in the body","neutron":"electrically neutral particle in the nucleus of an atom","nitrogen":"most abundant gas in Earth's atmosphere; essential to life","nucleotide":"building block of DNA and RNA consisting of a sugar, phosphate, and base","orbit":"the curved path of one object around another under gravity","organism":"any individual living thing capable of growth and reproduction","oxygen":"gas essential to life; the third most abundant element in the universe","particle":"a minute fragment of matter; a fundamental component of the universe","pendulum":"weight suspended from a fixed point that swings back and forth","photon":"the fundamental particle of light and electromagnetic radiation","planet":"large spherical body orbiting a star and dominant in its orbital zone","plasma":"ionized gas; the fourth state of matter and the most abundant in the universe","pressure":"force applied per unit area over a surface","proton":"positively charged particle in the nucleus of an atom","radiation":"energy emitted as waves or particles; includes light, X-rays, and nuclear radiation","reaction":"a chemical process in which substances interact to form new products","resistor":"electronic component that limits or regulates electric current flow","satellite":"object orbiting a larger body; can be natural like the Moon or artificial","solvent":"liquid in which substances dissolve to form a solution","species":"group of organisms that can interbreed and produce fertile offspring","supernova":"an explosive death of a massive star, briefly outshining an entire galaxy","temperature":"measure of the thermal energy or heat of a substance","thermometer":"instrument for measuring temperature","vaccine":"biological preparation that stimulates immunity against a specific disease","vapor":"a gas formed from a substance normally liquid or solid at room temperature","viscosity":"a fluid's resistance to flow; honey has high viscosity, water low","voltage":"the electric potential difference between two points in a circuit","wavelength":"the distance between successive peaks of a wave","vertebrate":"animal with a backbone or spinal column","arc":"a curved line or the luminous electrical discharge between two conductors","amp":"unit of electric current; short for ampere","gas":"state of matter with no fixed shape or volume; expands to fill a container","ice":"water in its solid frozen state","ray":"a line of light or energy radiating from a source","sun":"the star at the center of our solar system; source of Earth's energy","watt":"unit of power equal to one joule per second","volt":"unit of electrical potential difference","ohm":"unit of electrical resistance","star":"a luminous sphere of plasma held together by gravity","mars":"the fourth planet from the Sun; the red planet","moon":"a natural satellite orbiting a planet","beam":"a ray of light or a structural member that carries load","heat":"thermal energy transferred from a hotter object to a cooler one","lens":"transparent curved glass or plastic that refracts light","wave":"a disturbance that transfers energy through a medium","axis":"a straight line around which a body rotates or is symmetrically arranged","base":"in chemistry, a substance that accepts protons and has a pH above 7","bond":"a chemical link between atoms formed by sharing or transferring electrons","fuel":"material burned to produce heat or power","germ":"a microorganism that causes disease; also a seed or embryo","leaf":"flat green plant organ that absorbs sunlight for photosynthesis","mold":"a type of fungus that grows in multicellular filaments","moss":"small flowerless plant that grows in damp shady conditions","root":"the part of a plant that anchors it and absorbs water and nutrients","seed":"a plant embryo enclosed in a protective coat; the beginning of a new plant","stem":"the main stalk of a plant that supports leaves and flowers","tide":"the periodic rise and fall of sea levels caused by the Moon's gravity","vein":"blood vessel that carries blood toward the heart; also a channel in a leaf","alloy":"a metal made by combining two or more metallic elements","amber":"fossilized tree resin that sometimes contains prehistoric insects","basin":"a low-lying area of land drained by a river; also a bowl-shaped depression","blood":"red fluid circulated by the heart that carries oxygen throughout the body","brain":"organ of the central nervous system that controls thoughts and body functions","charge":"property of matter that causes it to experience electromagnetic forces","color":"visual perception produced by the wavelength of light hitting the eye","crust":"the outermost solid shell of a planet or moon","earth":"the third planet from the Sun; the only known planet with life","field":"a region of space where a force can be detected","flame":"the visible, gaseous part of a fire","fluid":"substance that flows and cannot permanently resist a shearing force","focus":"the point at which rays of light converge after passing through a lens","force":"a push or pull on an object that can change its motion","larva":"the juvenile form of an insect or other organism before metamorphosis","light":"device that produces illumination in a room","lunar":"relating to or resembling the Moon","motor":"a machine that converts energy into mechanical motion","nerve":"fiber bundle that transmits signals between the brain and body","ozone":"form of oxygen that in the upper atmosphere shields Earth from UV radiation","polar":"relating to the geographic poles; also relating to electric or magnetic poles","power":"the rate at which work is done or energy is transferred","prism":"transparent object that refracts light into a spectrum of colors","pulse":"rhythmic throbbing of arteries; also the rate of heartbeats per minute","quark":"fundamental subatomic particle; building blocks of protons and neutrons","radar":"system using radio waves to detect objects and measure their distance","robot":"machine programmed to perform tasks automatically","solar":"relating to or powered by the Sun","sound":"vibrations that travel through air and are heard by the ear","spore":"reproductive unit of fungi, algae, and plants that disperses and germinates","steam":"water in the form of vapor; also the visible mist of water droplets","valve":"device for controlling the flow of liquid or gas through a pipe","virus":"microscopic infectious agent that replicates inside living cells","water":"transparent liquid compound of hydrogen and oxygen essential to all life","xenon":"dense, colorless noble gas used in flash lamps and ion thrusters","plant":"living organism kept indoors for decoration; a houseplant","optic":"relating to the eye, vision, or light","umbrella":"portable folding canopy on a handle used for protection from rain","television":"electronic device that receives and displays broadcast images and sound","refrigerator":"insulated cabinet that keeps food cold to slow spoilage","blanket":"soft cloth covering used to keep warm in bed or on a sofa","cupboard":"storage cabinet with shelves and doors, found in kitchens","doorknob":"round handle used to operate a door's latch mechanism","staircase":"a series of steps connecting different floors of a building","mattress":"large padded rectangular structure placed on a bed frame for sleeping","chandelier":"decorative light fixture that hangs from the ceiling","fireplace":"recessed area in a wall for containing an open fire; a hearth","cushion":"soft padded bag used as a comfortable seat or pillow","wardrobe":"large freestanding cabinet with hanging space for clothes","faucet":"valve with a spout for controlling the flow of water from a pipe","drawer":"sliding storage compartment in a piece of furniture","ceiling":"the overhead interior surface of a room","armchair":"large comfortable chair with armrests on both sides","ashtray":"small container for tobacco ash and cigarette butts","basement":"the floor of a building that is partly or entirely below ground level","bathtub":"large container filled with water for bathing the whole body","bedroom":"a room in a home used primarily for sleeping","bookcase":"piece of furniture with shelves for storing books","bookshelf":"a shelf or set of shelves for holding books","broom":"long-handled cleaning tool with bristles for sweeping floors","bucket":"round open container with a handle, used to carry water","candle":"wax cylinder with a wick that gives light when burned","carpet":"thick textile floor covering that softens sound and warmth","closet":"small enclosed space used for storing clothes or household items","coaster":"small mat placed under a cup or glass to protect the surface","colander":"bowl-shaped kitchen tool with holes for draining pasta and vegetables","corkscrew":"spiral device for removing corks from wine bottles","couch":"long upholstered seat for two or more people; a sofa","counter":"flat work surface in a kitchen or bathroom","curtain":"cloth hung at a window for decoration, privacy, or to block light","cutlery":"knives, forks, and spoons used for eating; flatware","dishwasher":"appliance that automatically washes dishes with hot water and detergent","doormat":"small mat placed at a doorway for wiping mud from shoes","doorway":"an entrance to a room or building framed by a door","driveway":"private road leading from a street to a house or garage","dustpan":"flat-handled shovel for collecting swept dust and debris","duvet":"thick quilted bed covering filled with down or synthetic fibers","freezer":"appliance or compartment that keeps food frozen for long-term storage","kettle":"metal or plastic vessel for boiling water; used for making tea","furnace":"heating system that warms air or water for distribution throughout a home","garage":"covered structure used to shelter one or more vehicles","hallway":"narrow passage connecting rooms in a building","hammer":"tool with a heavy head for driving nails and breaking objects","hanger":"device with a hook for hanging clothes to keep them wrinkle-free","headboard":"upright panel at the head of a bed, often decorative","heater":"device that generates and distributes warmth in a room","kitchen":"room in a home designated for cooking and preparing food","ladder":"set of horizontal rungs fixed between two upright poles for climbing","lamp":"electric light with a shade, placed on a table or floor","lampshade":"cover placed over a light bulb to diffuse and direct the light","laundry":"clothes and linens needing to be washed; also the room where washing is done","mailbox":"box outside a home for receiving postal deliveries","mantel":"shelf above a fireplace, often used for display","microwave":"oven that cooks food using electromagnetic microwave radiation","mirror":"flat glass surface coated to reflect images","mixer":"kitchen appliance with beaters for mixing dough and batter","mop":"cleaning tool with an absorbent head on a long handle for washing floors","napkin":"small cloth or paper square used to wipe lips and fingers during meals","nightstand":"small bedside table for holding a lamp, phone, or book","oven":"enclosed cooking appliance that heats food from the outside","pantry":"small room or cupboard for storing food and kitchen supplies","picture":"painting, photograph, or print displayed on a wall","pillow":"soft cushion used to support the head during sleep","plunger":"suction cup tool on a handle used to unblock drains and toilets","radiator":"heat-emitting unit connected to a central heating system","recliner":"armchair with a back that tilts and a footrest that extends for comfort","saucepan":"deep cooking pot with a long handle and a lid","scissors":"cutting tool with two blades pivoting on a central pin","settee":"a long upholstered seat for multiple people; British term for sofa","shelf":"flat horizontal board mounted on a wall for storing objects","shower":"enclosure where water sprays from above for bathing","sideboard":"low cabinet with drawers and shelves used in a dining room","sink":"basin connected to water supply and drainage for washing","sofa":"long upholstered seat for two or more people","spatula":"flat flexible kitchen utensil for turning and lifting food","sponge":"absorbent material used for cleaning surfaces","stairwell":"the shaft in a building that contains a staircase","stool":"small seat without a back or armrests","stove":"cooking appliance with burners on top and often an oven below","teapot":"ceramic or metal vessel with a spout and handle for brewing tea","thermostat":"device that automatically regulates temperature in a heating or cooling system","toaster":"small kitchen appliance that browns slices of bread with radiant heat","toilet":"sanitary fixture for receiving and disposing of human waste","toothbrush":"handled brush with bristles used to clean teeth and gums","towel":"absorbent cloth for drying the body after bathing","tumbler":"flat-bottomed drinking glass without a handle or stem","vacuum":"electric appliance that cleans floors by suction; short for vacuum cleaner","vase":"decorative container for holding cut flowers or as an ornament","ventilator":"device that provides fresh air circulation in a building","wallpaper":"decorative paper pasted onto interior walls as a surface covering","washer":"washing machine; a machine for cleaning clothes with water and detergent","window":"opening in a wall fitted with glass that lets in light and air","windowsill":"narrow ledge at the base of a window, inside or outside","cabinet":"piece of furniture with doors and shelves for storage","dresser":"chest of drawers, often with a mirror, used in a bedroom","doorbell":"button outside a door that rings a bell inside to signal a visitor","footstool":"low padded stool for resting your feet; also called an ottoman","bed":"piece of furniture for sleeping on, with a frame and mattress","cup":"small open container with a handle for drinking hot beverages","fan":"rotating bladed device that moves air for cooling or ventilation","jar":"cylindrical glass or ceramic container with a wide mouth and lid","jug":"large container with a handle and lip for pouring liquids","mat":"flat piece of material placed on the floor as a surface covering","mug":"large sturdy cup with a handle, used for hot drinks","pan":"flat-bottomed metal cooking vessel used on a stove","peg":"small pin or hook used to hang things; also a clothes peg","pot":"deep round metal vessel used for cooking on the stove","rug":"small carpet placed on a floor as decoration or to soften the surface","tub":"large open container for washing; short for bathtub","bin":"container for storing or disposing of waste or recyclables","key":"small metal instrument shaped to fit a lock and open or close it","bowl":"round deep dish used for serving food or mixing ingredients","comb":"toothed strip for detangling and styling hair","desk":"flat-topped piece of furniture used for writing and working","dish":"flat plate or shallow bowl for serving food","door":"hinged panel that opens and closes the entrance to a room or building","fork":"eating utensil with a handle and prongs for piercing food","hook":"curved device fixed to a wall for hanging items","iron":"heavy electrical device with a heated plate for removing creases from clothes","lock":"security device that fastens a door and can be opened with a key","nail":"thin metal spike driven by a hammer to fasten wood","rack":"frame or shelf with hooks or pegs for hanging or storing items","rake":"garden tool with a long handle and teeth for gathering leaves and debris","wall":"vertical structure of brick, stone, or wood that encloses or divides a space","bath":"the act of washing in a tub of water; also the tub itself","bell":"hollow metal cup that makes a ringing sound when struck","bulb":"glass globe containing a filament or gas that produces electric light","clock":"device for measuring and displaying the time","crib":"small barred bed for a baby or toddler","frame":"rigid structure surrounding a picture, door, or window","glass":"drinking vessel made of glass; also the transparent material","grill":"cooking surface with metal bars over direct heat","knife":"cutting tool with a sharp blade and a handle","ladle":"long-handled spoon with a deep bowl for serving soups and stews","linen":"bedsheets and tablecloths; also a woven cloth made from flax","plate":"flat round dish from which food is served and eaten","quilt":"thick bed covering made of stitched layers of fabric with padding","spoon":"utensil with a bowl-shaped head and handle for eating liquid foods","stair":"a step in a staircase","tray":"flat shallow container for carrying food, drinks, or other items","vent":"opening that allows air to circulate in or out of a room","blind":"window covering made of horizontal or vertical slats that can be tilted","board":"flat piece of wood or other material used for various purposes","brush":"tool with bristles set in a handle for cleaning or painting","chair":"piece of furniture with a back and four legs for one person to sit on","chest":"large strong box with a lid for storing items; also a chest of drawers","clamp":"device for holding or fastening two things together","decor":"the furnishings and decorations of a room","latch":"a bar or catch that holds a door or gate closed","shade":"window covering that blocks light; also an area out of direct sunlight","sheet":"large flat piece of fabric used as bedding","stand":"upright frame or rack for holding or displaying objects","timer":"device that records or signals the passing of a measured amount of time","basket":"container made from woven material used for storing or carrying things"};
+
+const WORDS = {
+  "Animals": ["elephant","giraffe","kangaroo","dolphin","penguin","crocodile","butterfly","squirrel","rhinoceros","octopus","leopard","hedgehog","flamingo","chimpanzee","porcupine","alligator","antelope","armadillo","baboon","badger","barracuda","beaver","buffalo","camel","chameleon","cheetah","chinchilla","cobra","cougar","coyote","dingo","donkey","dragonfly","eagle","ferret","falcon","gazelle","gerbil","gibbon","goldfish","gorilla","grasshopper","hamster","hippopotamus","hyena","iguana","jaguar","jellyfish","koala","ladybug","lemur","lobster","lynx","macaw","mammoth","manatee","meerkat","mongoose","mosquito","narwhal","newt","ocelot","ostrich","otter","panther","parrot","peacock","pelican","platypus","puffin","python","rabbit","raccoon","reindeer","salamander","scorpion","seahorse","seal","shark","sloth","sparrow","starfish","stingray","stork","swordfish","tarantula","termite","toucan","turtle","vulture","walrus","weasel","wolverine","wombat","woodpecker","zebra","mole","panda","lizard","mackerel","ant","bat","bee","cat","cod","cow","dog","eel","elk","emu","fox","hen","owl","pig","ram","rat","yak","crab","deer","dove","duck","fawn","fish","frog","goat","hare","hawk","ibis","lamb","lion","mule","pony","puma","swan","toad","tuna","wasp","wolf","bison","civet","crane","egret","finch","gecko","goose","heron","horse","llama","moose","mouse","quail","raven","rhino","robin","skunk","snail","snake","squid","tapir","viper"],
+  "Countries": ["canada","brazil","australia","portugal","thailand","morocco","argentina","switzerland","indonesia","ethiopia","denmark","vietnam","mongolia","colombia","norway","afghanistan","albania","algeria","angola","armenia","austria","bahamas","bangladesh","belgium","bolivia","botswana","bulgaria","cambodia","cameroon","chile","china","croatia","cuba","cyprus","ecuador","egypt","estonia","finland","france","georgia","germany","ghana","greece","guatemala","honduras","hungary","iceland","india","iran","iraq","ireland","israel","italy","jamaica","japan","jordan","kazakhstan","kenya","kuwait","latvia","lebanon","liberia","libya","lithuania","luxembourg","madagascar","malaysia","mexico","nepal","netherlands","nicaragua","nigeria","pakistan","panama","paraguay","peru","philippines","poland","romania","russia","rwanda","senegal","serbia","singapore","slovakia","slovenia","somalia","spain","sweden","tanzania","tunisia","turkey","uganda","ukraine","uruguay","uzbekistan","venezuela","yemen","zambia","zimbabwe","chad","fiji","laos","mali","oman","togo","qatar","samoa","sudan","syria","niger","gabon","benin","haiti","brunei","bhutan","guyana","kosovo","malta","monaco","namibia","taiwan","belarus","moldova","montenegro","mozambique","myanmar","suriname","tajikistan","turkmenistan","bahrain","comoros","djibouti","dominica","grenada","lesotho","maldives","mauritius","palau","seychelles","vanuatu","andorra","eritrea","gambia","guinea","kyrgyzstan","malawi","mauritania"],
+  "Food & Drink": ["spaghetti","avocado","pineapple","chocolate","cinnamon","broccoli","sandwich","espresso","pancake","blueberry","cucumber","lasagna","mushroom","pretzel","smoothie","almond","apricot","artichoke","asparagus","bacon","bagel","banana","barbecue","biscuit","blackberry","bratwurst","burrito","cabbage","cantaloupe","cappuccino","caramel","carrot","cashew","cauliflower","cheddar","cheesecake","cherry","chickpea","chowder","cilantro","coconut","coleslaw","cornbread","croissant","cranberry","custard","doughnut","dumpling","eggplant","enchilada","fettuccine","grapefruit","guacamole","hamburger","hazelnut","honeydew","jalapeno","ketchup","lemonade","lentil","lettuce","lobster","macaroni","mango","marmalade","meatball","meringue","molasses","mozzarella","mustard","noodle","oatmeal","omelette","oregano","pancetta","parmesan","parsley","peanut","pepperoni","pistachio","popcorn","porridge","pudding","pumpkin","quesadilla","raspberry","ravioli","rhubarb","risotto","rosemary","sausage","spinach","strawberry","tangerine","tomato","tortilla","turmeric","vanilla","waffle","zucchini","pie","egg","jam","ham","tea","rye","fig","oat","nut","pea","yam","soup","milk","rice","bean","corn","kale","lime","mint","pear","plum","taco","tofu","wine","beef","brie","cake","chip","dill","kiwi","leek","naan","okra","salt","sage","soda","sushi","bread","candy","cocoa","curry","donut","gravy","honey","juice","lemon","mocha","nacho","olive","onion","pasta","pizza","salsa","scone","steak","sugar","syrup","toast","wafer","wheat","apple","berry","cream","fudge","grape","melon","peach","walnut","yogurt"],
+  "Science": ["molecule","gravity","electron","velocity","photosynthesis","telescope","magnetism","ecosystem","chromosome","asteroid","catalyst","nucleus","spectrum","friction","enzyme","acceleration","acid","alkaline","amplitude","antibody","atmosphere","atom","bacteria","biology","buoyancy","capacitor","carbon","cell","chemistry","circuit","combustion","comet","compound","condensation","conductor","cytoplasm","density","diffusion","dinosaur","electricity","element","energy","entropy","equilibrium","evolution","evaporation","fossil","frequency","fungus","galaxy","gene","genome","glucose","helium","hydrogen","inertia","insulator","ion","isotope","kinetic","laboratory","magnet","mammal","mass","membrane","metabolism","meteor","microscope","mineral","mitochondria","momentum","neuron","neutron","nitrogen","nucleotide","orbit","organism","oxygen","particle","pendulum","photon","planet","plasma","pressure","proton","radiation","reaction","resistor","satellite","solvent","species","supernova","temperature","thermometer","vaccine","vapor","viscosity","voltage","wavelength","vertebrate","arc","amp","gas","ice","ray","sun","watt","volt","ohm","star","mars","moon","beam","heat","lens","wave","axis","base","bond","fuel","germ","leaf","mold","moss","root","seed","stem","tide","vein","alloy","amber","basin","blood","brain","charge","color","crust","earth","field","flame","fluid","focus","force","larva","light","lunar","motor","nerve","ozone","polar","power","prism","pulse","quark","radar","robot","solar","sound","spore","steam","valve","virus","water","xenon","plant","optic"],
+  "Around the House": ["umbrella","television","refrigerator","blanket","cupboard","doorknob","staircase","mattress","chandelier","fireplace","cushion","wardrobe","faucet","drawer","ceiling","armchair","ashtray","basement","bathtub","bedroom","bookcase","bookshelf","broom","bucket","candle","carpet","closet","coaster","colander","corkscrew","couch","counter","curtain","cutlery","dishwasher","doormat","doorway","driveway","dustpan","duvet","freezer","kettle","furnace","garage","hallway","hammer","hanger","headboard","heater","kitchen","ladder","lamp","lampshade","laundry","mailbox","mantel","microwave","mirror","mixer","mop","napkin","nightstand","oven","pantry","picture","pillow","plunger","radiator","recliner","saucepan","scissors","settee","shelf","shower","sideboard","sink","sofa","spatula","sponge","stairwell","stool","stove","teapot","thermostat","toaster","toilet","toothbrush","towel","tumbler","vacuum","vase","ventilator","wallpaper","washer","window","windowsill","cabinet","dresser","doorbell","footstool","bed","cup","fan","jar","jug","mat","mug","pan","peg","pot","rug","tub","bin","key","bowl","comb","desk","dish","door","fork","hook","iron","lock","nail","rack","rake","wall","bath","bell","bulb","clock","crib","frame","glass","grill","knife","ladle","light","linen","plate","quilt","spoon","stair","tray","vent","blind","board","brush","chair","chest","clamp","decor","latch","plant","shade","sheet","stand","timer","valve","basket"]
+};
+
+// Normalize each list: lowercase, letters-only, dedupe (so length filtering is reliable)
+Object.keys(WORDS).forEach(k => {
+  WORDS[k] = [...new Set(WORDS[k].map(w => w.toLowerCase()).filter(w => /^[a-z]+$/.test(w)))];
+});
+const ONLINE = "🎲 Random (online)";
+const onlineCache = {};
+
+const MAX_MISSES = 9;
+const NUM_PARTS = 9;
+
+const COMMON = new Set(['R','S','T','L','N','E']);
+function rstlneScore(word) {
+  return [...word.toUpperCase()].filter(c => COMMON.has(c)).length;
+}
+function hardFilter(list) {
+  const scores = list.map(rstlneScore);
+  const min = Math.min(...scores);
+  return list.filter((_, i) => scores[i] === min);
+}
+
+const el = (id) => document.getElementById(id);
+const catSel = el("cat");
+const modeSel = el("mode");
+const lenSel = el("len");
+const wordEl = el("word");
+const wordWrap = el("wordWrap");
+const defTip = el("defTip");
+const kbEl = el("keyboard");
+const statusEl = el("status");
+const wrongListEl = el("wrongList");
+const leftEl = el("left");
+const winsEl = el("wins");
+const lossesEl = el("losses");
+
+let secret = "";
+let guessed = new Set();
+let wrong = [];
+let over = false;
+let wins = 0, losses = 0;
+
+async function fetchDefinition(word) {
+  try {
+    const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + word.toLowerCase());
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entry = data[0];
+    if (!entry) return null;
+
+    let html = "";
+
+    // Phonetic
+    const phonetic = entry.phonetic || entry.phonetics?.find(p => p.text)?.text;
+    if (phonetic) html += `<div style="color:var(--accent);font-size:12px;margin-bottom:6px;">${phonetic}</div>`;
+
+    // Up to 3 meanings
+    const meanings = entry.meanings?.slice(0, 3) || [];
+    meanings.forEach(m => {
+      html += `<div style="margin-bottom:6px;"><em style="color:var(--accent);">${m.partOfSpeech}</em>`;
+      m.definitions?.slice(0, 2).forEach((d, i) => {
+        html += `<div style="margin-top:3px;">${i + 1}. ${d.definition}</div>`;
+        if (d.example) html += `<div style="color:var(--muted);font-style:italic;margin-top:2px;">"${d.example}"</div>`;
+      });
+      if (m.synonyms?.length) html += `<div style="color:var(--muted);margin-top:3px;">syn: ${m.synonyms.slice(0,5).join(", ")}</div>`;
+      html += `</div>`;
+    });
+
+    return html || null;
+  } catch { return null; }
+}
+
+function setDefinition(html) {
+  if (html) {
+    defTip.innerHTML = html;
+    wordWrap.title = "Hover to see definition";
+    wordWrap.style.cursor = "help";
+  } else {
+    defTip.innerHTML = "";
+    wordWrap.title = "";
+    wordWrap.style.cursor = "";
+  }
+}
+
+wordWrap.addEventListener("click", () => {
+  if (defTip.innerHTML) wordWrap.classList.toggle("def-open");
+});
+
+// Build category dropdown (curated categories + an online random option)
+Object.keys(WORDS).forEach(c => {
+  const o = document.createElement("option");
+  o.value = c; o.textContent = c;
+  catSel.appendChild(o);
+});
+(function(){ const o = document.createElement("option"); o.value = ONLINE; o.textContent = ONLINE; catSel.appendChild(o); })();
+
+async function getWord() {
+  const len = parseInt(lenSel.value, 10) || 0;
+  if (catSel.value === ONLINE) return await getOnlineWord(len);
+  let list = WORDS[catSel.value] || [];
+  if (len) list = list.filter(w => w.length === len);
+  if (!list.length) return null;
+  if (modeSel.value === "hard") list = hardFilter(list);
+  return list[Math.floor(Math.random() * list.length)].toUpperCase();
+}
+
+async function getOnlineWord(len) {
+  const n = len || (4 + Math.floor(Math.random() * 5)); // random 4-8 when "Any"
+  const pattern = "?".repeat(n);
+  try {
+    if (!onlineCache[pattern]) {
+      const res = await fetch("https://api.datamuse.com/words?max=1000&sp=" + pattern);
+      const data = await res.json();
+      const re = new RegExp("^[a-z]{" + n + "}$");
+      onlineCache[pattern] = data.map(d => d.word).filter(w => re.test(w));
+    }
+    let pool = onlineCache[pattern];
+    if (!pool || !pool.length) return null;
+    if (modeSel.value === "hard") pool = hardFilter(pool);
+    return pool[Math.floor(Math.random() * pool.length)].toUpperCase();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function newGame() {
+  guessed = new Set();
+  wrong = [];
+  over = false;
+  secret = "";
+  setDefinition(null);
+  wordWrap.classList.remove("def-open");
+  stopTimer();
+  timerWrap.classList.toggle("active", speedMode);
+  if (speedMode) { timeLeft = speedSecs; updateTimerDisplay(); }
+  for (let i = 1; i <= NUM_PARTS; i++) {
+    el("p" + i)?.classList.remove("show");
+    el("pm" + i)?.classList.remove("show");
+  }
+  // Reset dunk animation
+  ["personGroupHer","personGroupMan"].forEach(id => { const g=document.getElementById(id); if(g){g.classList.remove("dunked"); void g.offsetWidth;} });
+  ["splashGroupHer","splashGroupMan"].forEach(id => { const g=document.getElementById(id); if(g) g.classList.remove("show"); });
+  renderWrong();
+  updateLeft();
+  buildKeyboard();
+  renderWord();
+  statusEl.className = "status";
+  statusEl.textContent = catSel.value === ONLINE ? "Fetching a word…" : "Pick a letter to begin.";
+
+  const w = await getWord();
+  if (!w) {
+    secret = "";
+    over = true;
+    renderWord();
+    lockKeyboard();
+    statusEl.className = "status lose";
+    statusEl.textContent = catSel.value === ONLINE
+      ? "Couldn't fetch a word — check your connection and press New Word."
+      : "No " + lenSel.value + "-letter words in " + catSel.value + ". Pick another length.";
+    return;
+  }
+  secret = w;
+  renderWord();
+  statusEl.className = "status";
+  statusEl.textContent = "Pick a letter to begin.";
+  if (speedMode) startTimer();
+  if (catSel.value === ONLINE) {
+    fetchDefinition(w).then(setDefinition);
+  } else {
+    const d = DEFS[w.toLowerCase()];
+    setDefinition(d ? d : null);
+  }
+}
+
+function renderWord(revealAll = false) {
+  wordEl.innerHTML = "";
+  for (const ch of secret) {
+    if (ch === " ") {
+      const g = document.createElement("span");
+      g.className = "gap";
+      wordEl.appendChild(g);
+      continue;
+    }
+    const s = document.createElement("span");
+    s.className = "slot";
+    const shown = guessed.has(ch) || revealAll;
+    if (shown) {
+      s.textContent = ch;
+      s.classList.add("filled");
+      if (revealAll && !guessed.has(ch)) s.classList.add("missed");
+    } else {
+      s.innerHTML = "&nbsp;";
+    }
+    wordEl.appendChild(s);
+  }
+}
+
+function renderWrong() {
+  wrongListEl.textContent = wrong.length ? wrong.join(" ") : "—";
+}
+
+function updateLeft() {
+  leftEl.textContent = MAX_MISSES - wrong.length;
+}
+
+function buildKeyboard() {
+  kbEl.innerHTML = "";
+  for (let c = 65; c <= 90; c++) {
+    const letter = String.fromCharCode(c);
+    const b = document.createElement("button");
+    b.className = "key";
+    b.textContent = letter;
+    b.dataset.letter = letter;
+    b.addEventListener("click", () => guess(letter));
+    kbEl.appendChild(b);
+  }
+}
+
+function guess(letter) {
+  if (over || guessed.has(letter)) return;
+  if (!/[A-Z]/.test(letter)) return;
+  guessed.add(letter);
+
+  const btn = [...kbEl.children].find(b => b.dataset.letter === letter);
+  if (btn) btn.disabled = true;
+
+  if (speedMode) startTimer();
+  if (secret.includes(letter)) {
+    if (btn) btn.classList.add("correct");
+    renderWord();
+    checkWin();
+  } else {
+    if (btn) btn.classList.add("incorrect");
+    wrong.push(letter);
+    // Reveal the next piece, in standard order
+    el((charMode === "her" ? "p" : "pm") + wrong.length).classList.add("show");
+    renderWrong();
+    updateLeft();
+    checkLose();
+  }
+}
+
+function checkWin() {
+  const won = [...secret].every(ch => ch === " " || guessed.has(ch));
+  if (won) {
+    over = true;
+    stopTimer();
+    wins++;
+    winsEl.textContent = wins;
+    logGame("Win");
+    statusEl.className = "status win";
+    statusEl.textContent = (charMode === "her" ? "She stays dry!" : "He stays dry!") + " The word was " + secret + ".";
+    lockKeyboard();
+  }
+}
+
+function checkLose() {
+  if (wrong.length >= MAX_MISSES) {
+    over = true;
+    stopTimer();
+    losses++;
+    lossesEl.textContent = losses;
+    logGame("Loss");
+    triggerDunk();
+    statusEl.className = "status lose";
+    statusEl.textContent = "Splaaaash! The word was " + secret + ".";
+    renderWord(true);
+    lockKeyboard();
+  }
+}
+
+function lockKeyboard() {
+  [...kbEl.children].forEach(b => b.disabled = true);
+}
+
+function giveUp() {
+  if (over) return;
+  over = true;
+  stopTimer();
+  losses++;
+  lossesEl.textContent = losses;
+  logGame("Gave Up");
+  triggerDunk();
+  statusEl.className = "status lose";
+  statusEl.textContent = "Gave up — dunked! The word was " + secret + ".";
+  renderWord(true);
+  lockKeyboard();
+}
+
+// Speed mode
+let speedMode = false;
+let speedSecs = 5;
+let timerTick = null;
+let timeLeft = 0;
+
+const timerWrap  = el("timerWrap");
+const timerBar   = el("timerBar");
+const timerLabel = el("timerLabel");
+const speedToggle = el("speedToggle");
+const speedDur    = el("speedDur");
+const speedSlider = el("speedSlider");
+const speedVal    = el("speedVal");
+
+function updateTimerDisplay() {
+  const pct = (timeLeft / speedSecs) * 100;
+  timerBar.style.width = pct + "%";
+  timerBar.className = "timer-bar" + (pct <= 25 ? " danger" : pct <= 50 ? " warn" : "");
+  timerLabel.textContent = timeLeft + "s";
+}
+
+function stopTimer() {
+  clearInterval(timerTick);
+  timerTick = null;
+}
+
+function startTimer() {
+  stopTimer();
+  timeLeft = speedSecs;
+  updateTimerDisplay();
+  timerTick = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0) {
+      stopTimer();
+      if (!over) {
+        over = true;
+        losses++;
+        lossesEl.textContent = losses;
+        logGame("Time's Up");
+        triggerDunk();
+        statusEl.className = "status lose";
+        statusEl.textContent = "Time's up — dunked! The word was " + secret + ".";
+        renderWord(true);
+        lockKeyboard();
+      }
+    }
+  }, 1000);
+}
+
+speedToggle.addEventListener("click", () => {
+  speedMode = !speedMode;
+  speedToggle.textContent = speedMode ? "⚡ On" : "⚡ Off";
+  speedToggle.classList.toggle("on", speedMode);
+  speedDur.style.display = speedMode ? "flex" : "none";
+  if (!speedMode) { stopTimer(); timerWrap.classList.remove("active"); }
+  newGame();
+});
+
+speedSlider.addEventListener("input", () => {
+  speedSecs = parseInt(speedSlider.value);
+  speedVal.textContent = speedSecs + "s";
+  if (speedMode && !over) startTimer();
+});
+
+// Keyboard support
+document.addEventListener("keydown", (e) => {
+  const k = e.key.toUpperCase();
+  if (k.length === 1 && k >= "A" && k <= "Z") guess(k);
+  if (e.key === "Enter") newGame();
+});
+
+// Character mode
+let charMode = "her";
+function applyChar(mode) {
+  charMode = mode;
+  const isHer = mode === "her";
+  el("svgHer").style.display = isHer ? "" : "none";
+  el("svgMan").style.display = isHer ? "none" : "";
+  el("titleChar").textContent = isHer ? "Her" : "Man";
+  el("subtitle").textContent = isHer
+    ? "Guess the word — each wrong letter puts her closer to the tank. Nine wrong guesses and she's dunked!"
+    : "Guess the word — each wrong letter puts him closer to the tank. Nine wrong guesses and he's dunked!";
+  el("footer").textContent = isHer
+    ? "DunkHer • Head → Pigtails → Body → Arms → Skirt → Legs (9 pieces)"
+    : "DunkMan • Head → Body → Arms → Legs → Bow Tie → Trunks → Hat (9 pieces)";
+  el("settHer").classList.toggle("active", isHer);
+  el("settMan").classList.toggle("active", !isHer);
+  for (let i = 1; i <= wrong.length; i++) el((isHer ? "p" : "pm") + i)?.classList.add("show");
+  // Sync dunk group visibility
+  document.getElementById("personGroupHer").style.display = isHer ? "" : "none";
+  document.getElementById("personGroupMan").style.display = isHer ? "none" : "";
+}
+
+const THEME_NAMES = { "": "Purple", "navy": "Navy", "forest": "Forest", "midnight": "Midnight" };
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  document.querySelectorAll(".sett-theme-btn").forEach(b => b.classList.toggle("active", b.dataset.theme === t));
+  const lbl = el("themeLabel"); if (lbl) lbl.textContent = THEME_NAMES[t] || "Purple";
+}
+
+el("settHer").addEventListener("click", () => applyChar("her"));
+el("settMan").addEventListener("click", () => applyChar("man"));
+document.querySelectorAll(".sett-theme-btn").forEach(b => b.addEventListener("click", () => applyTheme(b.dataset.theme)));
+
+// Audio — uses Web Audio API GainNode so volume works on iOS
+const bgMusic = el("bgMusic");
+const muteBtn = el("muteBtn");
+const volSlider = el("volSlider");
+let musicStarted = false;
+let audioCtx, gainNode;
+
+function setupAudioGraph() {
+  if (audioCtx) return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  audioCtx = new AC();
+  const source = audioCtx.createMediaElementSource(bgMusic);
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = parseFloat(volSlider.value);
+  source.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+}
+
+function setVolume(v) {
+  if (gainNode) gainNode.gain.value = v;
+  else bgMusic.volume = v; // fallback for browsers without Web Audio
+}
+
+function startMusic() {
+  if (!musicStarted) {
+    musicStarted = true;
+    setupAudioGraph();
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    bgMusic.play().catch(() => {});
+  }
+}
+
+muteBtn.addEventListener("click", () => {
+  if (bgMusic.paused) {
+    startMusic();
+    muteBtn.textContent = "🔊";
+  } else {
+    bgMusic.pause();
+    muteBtn.textContent = "🔇";
+  }
+});
+
+volSlider.addEventListener("input", () => {
+  const v = parseFloat(volSlider.value);
+  setVolume(v);
+  if (v === 0) {
+    muteBtn.textContent = "🔇";
+  } else {
+    muteBtn.textContent = "🔊";
+    if (bgMusic.paused && musicStarted) bgMusic.play().catch(() => {});
+  }
+});
+
+document.addEventListener("click", startMusic, { once: true });
+
+el("newGame").addEventListener("click", newGame);
+el("reveal").addEventListener("click", giveUp);
+catSel.addEventListener("change", newGame);
+modeSel.addEventListener("change", newGame);
+lenSel.addEventListener("change", newGame);
+
+// Settings modal
+const settingsOverlay = el("settingsOverlay");
+el("settingsBtn").addEventListener("click", () => { renderLog(); settingsOverlay.classList.add("open"); });
+el("settingsClose").addEventListener("click", () => settingsOverlay.classList.remove("open"));
+settingsOverlay.addEventListener("click", e => { if (e.target === settingsOverlay) settingsOverlay.classList.remove("open"); });
+
+// Info modal
+const overlay = el("modalOverlay");
+el("settAbout").addEventListener("click", () => { settingsOverlay.classList.remove("open"); overlay.classList.add("open"); });
+el("modalClose").addEventListener("click", () => overlay.classList.remove("open"));
+overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.classList.remove("open"); });
+
+// Win log
+function triggerDunk() {
+  const pg = document.getElementById(charMode === "her" ? "personGroupHer" : "personGroupMan");
+  const sg = document.getElementById(charMode === "her" ? "splashGroupHer" : "splashGroupMan");
+  if (pg) pg.classList.add("dunked");
+  if (sg) sg.classList.add("show");
+}
+
+function logGame(result) {
+  const log = JSON.parse(localStorage.getItem("hangherLog") || "[]");
+  log.unshift({ ts: Date.now(), result, word: secret,
+    category: catSel.value === ONLINE ? "Online" : catSel.value,
+    mode: modeSel.value === "easy" ? "Easy" : "Hard",
+    char: charMode === "her" ? "HangHer" : "HangMan",
+    speed: speedMode ? speedSecs + "s" : "Off" });
+  localStorage.setItem("hangherLog", JSON.stringify(log));
+}
+
+function renderLog() {
+  const logEl = el("winLog");
+  const log = JSON.parse(localStorage.getItem("hangherLog") || "[]");
+  if (!log.length) { logEl.innerHTML = '<div class="log-empty">No games logged yet.</div>'; return; }
+  logEl.innerHTML = log.map(e => {
+    const w = e.result === "Win";
+    const d = new Date(e.ts);
+    const dt = d.toLocaleDateString([],{month:"short",day:"numeric"}) + " " + d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+    return '<div class="log-entry"><div>' +
+      '<span class="' + (w?"log-win":"log-loss") + '">' + (w?"✓":"✗") + " " + e.result + '</span>' +
+      '<span style="color:var(--ink);font-weight:700;margin-left:6px;">' + e.word + '</span>' +
+      '<div style="color:var(--muted);font-size:11px;margin-top:2px;">' + e.category + ' · ' + e.mode + ' · ' + e.char + (e.speed!=="Off"?" · ⚡"+e.speed:"") + '</div>' +
+      '</div><div style="color:var(--muted);font-size:11px;white-space:nowrap;">' + dt + '</div></div>';
+  }).join("");
+}
+
+el("clearLog").addEventListener("click", () => { localStorage.removeItem("hangherLog"); renderLog(); });
+
+newGame();
+</script>
+</body>
+</html>
