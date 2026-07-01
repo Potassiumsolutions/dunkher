@@ -337,7 +337,7 @@
       <div class="info-label">Character</div>
       <div class="sett-row">
         <button class="sett-char-btn active" id="settHer">👩 DunkHer</button>
-        <button class="sett-char-btn" id="settMan">👨 DunkMan</button>
+        <button class="sett-char-btn" id="settMan">👨 DunkHim</button>
       </div>
     </div>
 
@@ -530,8 +530,8 @@
           <line x1="127" y1="150" x2="136" y2="134" stroke="#4fc3f7" stroke-width="2.5" stroke-linecap="round"/>
         </g>
       </svg>
-      <!-- DunkMan figure -->
-      <svg id="svgMan" viewBox="0 0 200 220" aria-label="DunkMan dunk tank" style="display:none">
+      <!-- DunkHim figure -->
+      <svg id="svgMan" viewBox="0 0 200 220" aria-label="DunkHim dunk tank" style="display:none">
 
         <!-- Tank frame — always visible -->
         <line class="gallows" x1="42" y1="20" x2="42" y2="143"/>
@@ -551,7 +551,7 @@
         <circle class="target-ring"  cx="178" cy="91" r="9"/>
         <circle class="target-bull"  cx="178" cy="91" r="4"/>
 
-        <!-- Person (DunkMan) — revealed one part per wrong guess -->
+        <!-- Person (DunkHim) — revealed one part per wrong guess -->
         <g class="person-group" id="personGroupMan">
           <circle class="man-head part" id="pm1" cx="100" cy="66" r="16"/>                <!-- 1 Head -->
           <line   class="man-body part" id="pm2" x1="100" y1="82" x2="100" y2="94"/>     <!-- 2 Body (sitting) -->
@@ -986,7 +986,7 @@ function applyChar(mode) {
     : "Guess the word — each wrong letter puts him closer to the tank. Nine wrong guesses and he's dunked!";
   el("footer").textContent = isHer
     ? "DunkHer • Head → Pigtails → Body → Arms → Skirt → Legs (9 pieces)"
-    : "DunkMan • Head → Body → Arms → Legs → Bow Tie → Trunks → Hat (9 pieces)";
+    : "DunkHim • Head → Body → Arms → Legs → Bow Tie → Trunks → Hat (9 pieces)";
   el("settHer").classList.toggle("active", isHer);
   el("settMan").classList.toggle("active", !isHer);
   for (let i = 1; i <= wrong.length; i++) el((isHer ? "p" : "pm") + i)?.classList.add("show");
