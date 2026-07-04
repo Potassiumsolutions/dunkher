@@ -139,6 +139,12 @@
     pointer-events: none;
   }
   .def-tip em { color: var(--accent); font-style: italic; }
+  .say-btn {
+    pointer-events: auto; background: none; border: 1px solid #6a4675; border-radius: 6px;
+    color: var(--accent); cursor: pointer; font-size: 12px; padding: 2px 8px;
+    margin-bottom: 6px; font-family: inherit;
+  }
+  .say-btn:hover { background: rgba(255,255,255,0.1); }
   .word-wrap:hover .def-tip,
   .word-wrap.def-open .def-tip { display: block; }
   .def-tip:empty { display: none !important; }
@@ -654,6 +660,7 @@ let guessed = new Set();
 let wrong = [];
 let over = false;
 let wins = 0, losses = 0;
+let pronounceUrl = null;
 
 async function fetchDefinition(word) {
   try {
@@ -662,6 +669,8 @@ async function fetchDefinition(word) {
     const data = await res.json();
     const entry = data[0];
     if (!entry) return null;
+
+    pronounceUrl = entry.phonetics?.find(p => p.audio)?.audio || null;
 
     let html = "";
 
@@ -703,6 +712,26 @@ async function fetchDatamuseDefinition(word) {
     });
     return html || null;
   } catch { return null; }
+}
+
+// Pronounce the word: real audio clip if the dictionary has one, else text-to-speech
+function sayWord() {
+  if (!secret) return;
+  if (pronounceUrl) {
+    new Audio(pronounceUrl).play().catch(speakWord);
+    return;
+  }
+  speakWord();
+}
+function speakWord() {
+  if (!("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(secret.toLowerCase());
+  u.rate = 0.85;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+function withSay(html) {
+  return '<div><button class="say-btn" onclick="sayWord()">🔊 Hear it</button></div>' + html;
 }
 
 function setDefinition(html) {
@@ -763,6 +792,8 @@ async function newGame() {
   wrong = [];
   over = false;
   secret = "";
+  pronounceUrl = null;
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
   setDefinition(null);
   wordWrap.classList.remove("def-open");
   stopTimer();
@@ -800,7 +831,7 @@ async function newGame() {
   statusEl.textContent = "Pick a letter to begin.";
   if (speedMode) startTimer();
   if (catSel.value === ONLINE) {
-    fetchDefinition(w).then(d => d ? setDefinition(d) : fetchDatamuseDefinition(w).then(setDefinition));
+    fetchDefinition(w).then(d => d ? setDefinition(withSay(d)) : fetchDatamuseDefinition(w).then(d2 => setDefinition(d2 ? withSay(d2) : null)));
   } else {
     const d = DEFS[w.toLowerCase()];
     setDefinition(d ? d : null);
@@ -886,6 +917,7 @@ function checkWin() {
     statusEl.className = "status win";
     statusEl.textContent = (charMode === "her" ? "She stays dry!" : "He stays dry!") + " The word was " + secret + ".";
     lockKeyboard();
+    if (catSel.value === ONLINE) setTimeout(sayWord, 300);
   }
 }
 
@@ -901,6 +933,7 @@ function checkLose() {
     statusEl.textContent = "Splaaaash! The word was " + secret + ".";
     renderWord(true);
     lockKeyboard();
+    if (catSel.value === ONLINE) setTimeout(sayWord, 1100);
   }
 }
 
@@ -920,6 +953,7 @@ function giveUp() {
   statusEl.textContent = "Gave up — dunked! The word was " + secret + ".";
   renderWord(true);
   lockKeyboard();
+  if (catSel.value === ONLINE) setTimeout(sayWord, 1100);
 }
 
 // Speed mode
