@@ -885,6 +885,7 @@ function buildKeyboard() {
 function guess(letter) {
   if (over || guessed.has(letter)) return;
   if (!/[A-Z]/.test(letter)) return;
+  clickSound();
   guessed.add(letter);
 
   const btn = [...kbEl.children].find(b => b.dataset.letter === letter);
@@ -906,6 +907,59 @@ function guess(letter) {
   }
 }
 
+// --- Sound effects & fireworks ---
+let sfxCtx = null;
+function playTone(freq, dur, type, vol) {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!sfxCtx) sfxCtx = new AC();
+  if (sfxCtx.state === "suspended") sfxCtx.resume();
+  const t = sfxCtx.currentTime;
+  const o = sfxCtx.createOscillator();
+  const g = sfxCtx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(sfxCtx.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function clickSound() { playTone(650, 0.07, "square", 0.08); }
+
+function fireworks() {
+  const cv = document.createElement("canvas");
+  cv.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999;";
+  cv.width = innerWidth; cv.height = innerHeight;
+  document.body.appendChild(cv);
+  const ctx = cv.getContext("2d");
+  const colors = ["#ffd54f","#4fc3f7","#f06292","#81c784","#ba68c8","#ff8a65"];
+  const parts = [];
+  function burst(x, y) {
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    playTone(160 + Math.random() * 140, 0.3, "triangle", 0.1);
+    for (let i = 0; i < 60; i++) {
+      const a = Math.PI * 2 * i / 60, sp = 2 + Math.random() * 3.5;
+      parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, color });
+    }
+  }
+  for (let b = 0; b < 5; b++) {
+    setTimeout(() => burst(cv.width * (0.15 + Math.random() * 0.7), cv.height * (0.15 + Math.random() * 0.4)), b * 380);
+  }
+  const endTime = performance.now() + 4200;
+  (function tick() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.vx *= 0.985; p.vy *= 0.985; p.life -= 0.011;
+      if (p.life <= 0) { parts.splice(i, 1); continue; }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, 3, 3);
+    }
+    if (parts.length || performance.now() < endTime) requestAnimationFrame(tick);
+    else cv.remove();
+  })();
+}
+
 function checkWin() {
   const won = [...secret].every(ch => ch === " " || guessed.has(ch));
   if (won) {
@@ -917,6 +971,7 @@ function checkWin() {
     statusEl.className = "status win";
     statusEl.textContent = (charMode === "her" ? "She stays dry!" : "He stays dry!") + " The word was " + secret + ".";
     lockKeyboard();
+    fireworks();
     if (catSel.value === ONLINE) setTimeout(sayWord, 300);
   }
 }
