@@ -267,6 +267,7 @@
   }
   .sett-theme-btn.active { border-color: var(--accent); }
   .sett-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .vol-label { font-size: 12px; color: var(--muted); }
   .win-log { max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.25); border-radius: 8px; padding: 6px 8px; }
   .log-entry {
     font-size: 12px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
@@ -368,6 +369,12 @@
       <div class="sett-row">
         <button class="mute-btn" id="muteBtn" title="Toggle music">🔊</button>
         <input type="range" class="vol" id="volSlider" min="0" max="1" step="0.05" value="0.4">
+        <span class="vol-label">Music</span>
+      </div>
+      <div class="sett-row" style="margin-top:8px;">
+        <span class="mute-btn" style="cursor:default;">👆</span>
+        <input type="range" class="vol" id="sfxSlider" min="0" max="1" step="0.05" value="0.5">
+        <span class="vol-label">Effects</span>
       </div>
     </div>
 
@@ -909,7 +916,10 @@ function guess(letter) {
 
 // --- Sound effects & fireworks ---
 let sfxCtx = null;
+let sfxVol = parseFloat(localStorage.getItem("dunkherSfxVol") || "0.5");
 function playTone(freq, dur, type, vol) {
+  vol *= sfxVol;
+  if (vol <= 0) return;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   if (!sfxCtx) sfxCtx = new AC();
@@ -923,7 +933,7 @@ function playTone(freq, dur, type, vol) {
   o.connect(g); g.connect(sfxCtx.destination);
   o.start(t); o.stop(t + dur + 0.02);
 }
-function clickSound() { playTone(650, 0.07, "square", 0.08); }
+function clickSound() { playTone(150, 0.12, "sine", 0.5); }
 
 function fireworks() {
   const cv = document.createElement("canvas");
@@ -935,7 +945,7 @@ function fireworks() {
   const parts = [];
   function burst(x, y) {
     const color = colors[Math.floor(Math.random() * colors.length)];
-    playTone(160 + Math.random() * 140, 0.3, "triangle", 0.1);
+    playTone(160 + Math.random() * 140, 0.3, "triangle", 0.2);
     for (let i = 0; i < 60; i++) {
       const a = Math.PI * 2 * i / 60, sp = 2 + Math.random() * 3.5;
       parts.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 1, color });
@@ -1157,6 +1167,14 @@ muteBtn.addEventListener("click", () => {
     bgMusic.pause();
     muteBtn.textContent = "🔇";
   }
+});
+
+const sfxSlider = el("sfxSlider");
+sfxSlider.value = sfxVol;
+sfxSlider.addEventListener("input", () => {
+  sfxVol = parseFloat(sfxSlider.value);
+  localStorage.setItem("dunkherSfxVol", sfxVol);
+  clickSound(); // preview the new level
 });
 
 volSlider.addEventListener("input", () => {
