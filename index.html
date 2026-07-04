@@ -741,9 +741,15 @@ function withSay(html) {
   return '<div><button class="say-btn" onclick="sayWord()">🔊 Hear it</button></div>' + html;
 }
 
+// Definition is stashed during play and only shown once the round ends (no spoilers)
+let defHtml = null;
 function setDefinition(html) {
-  if (html) {
-    defTip.innerHTML = html;
+  defHtml = html;
+  if (over || !html) applyDefinition();
+}
+function applyDefinition() {
+  if (defHtml) {
+    defTip.innerHTML = defHtml;
     wordWrap.title = "Hover to see definition";
     wordWrap.style.cursor = "help";
   } else {
@@ -981,6 +987,7 @@ function checkWin() {
     statusEl.className = "status win";
     statusEl.textContent = (charMode === "her" ? "She stays dry!" : "He stays dry!") + " The word was " + secret + ".";
     lockKeyboard();
+    applyDefinition();
     fireworks();
     if (catSel.value === ONLINE) setTimeout(sayWord, 300);
   }
@@ -998,6 +1005,7 @@ function checkLose() {
     statusEl.textContent = "Splaaaash! The word was " + secret + ".";
     renderWord(true);
     lockKeyboard();
+    applyDefinition();
     if (catSel.value === ONLINE) setTimeout(sayWord, 1100);
   }
 }
@@ -1018,6 +1026,7 @@ function giveUp() {
   statusEl.textContent = "Gave up — dunked! The word was " + secret + ".";
   renderWord(true);
   lockKeyboard();
+  applyDefinition();
   if (catSel.value === ONLINE) setTimeout(sayWord, 1100);
 }
 
@@ -1066,6 +1075,8 @@ function startTimer() {
         statusEl.textContent = "Time's up — dunked! The word was " + secret + ".";
         renderWord(true);
         lockKeyboard();
+        applyDefinition();
+        if (catSel.value === ONLINE) setTimeout(sayWord, 1100);
       }
     }
   }, 1000);
