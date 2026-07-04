@@ -141,6 +141,7 @@
   .def-tip em { color: var(--accent); font-style: italic; }
   .word-wrap:hover .def-tip,
   .word-wrap.def-open .def-tip { display: block; }
+  .def-tip:empty { display: none !important; }
   .word .gap { width: 18px; }
   .word .slot {
     width: 30px; text-align: center; border-bottom: 4px solid var(--muted);
@@ -684,6 +685,26 @@ async function fetchDefinition(word) {
   } catch { return null; }
 }
 
+// Fallback: Datamuse's own definitions (covers obscure words dictionaryapi.dev lacks)
+async function fetchDatamuseDefinition(word) {
+  try {
+    const res = await fetch("https://api.datamuse.com/words?max=1&md=d&sp=" + word.toLowerCase());
+    if (!res.ok) return null;
+    const data = await res.json();
+    const entry = data[0];
+    if (!entry || entry.word !== word.toLowerCase() || !entry.defs?.length) return null;
+    const posNames = { n: "noun", v: "verb", adj: "adjective", adv: "adverb", u: "" };
+    let html = "";
+    entry.defs.slice(0, 3).forEach((def, i) => {
+      const tab = def.indexOf("\t");
+      const pos = tab > -1 ? (posNames[def.slice(0, tab)] ?? def.slice(0, tab)) : "";
+      const text = tab > -1 ? def.slice(tab + 1) : def;
+      html += `<div style="margin-bottom:6px;">${pos ? `<em style="color:var(--accent);">${pos}</em> ` : ""}${i + 1}. ${text}</div>`;
+    });
+    return html || null;
+  } catch { return null; }
+}
+
 function setDefinition(html) {
   if (html) {
     defTip.innerHTML = html;
@@ -779,7 +800,7 @@ async function newGame() {
   statusEl.textContent = "Pick a letter to begin.";
   if (speedMode) startTimer();
   if (catSel.value === ONLINE) {
-    fetchDefinition(w).then(setDefinition);
+    fetchDefinition(w).then(d => d ? setDefinition(d) : fetchDatamuseDefinition(w).then(setDefinition));
   } else {
     const d = DEFS[w.toLowerCase()];
     setDefinition(d ? d : null);
