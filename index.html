@@ -676,6 +676,22 @@ function encourage() {
   return ENCOURAGEMENTS[i];
 }
 
+// Streak-aware cheer after a win, nudging the player toward the next word.
+function winCheer(s) {
+  switch (s) {
+    case 1: return "Can you get two in a row?";
+    case 2: return "Two in a row! Go for three?";
+    case 3: return "Three straight — halfway to five!";
+    case 4: return "Four in a row! Almost to five…";
+    case 5: return "Five in a row — what a streak! 🔥";
+    case 6: return "Six straight! Can anything dunk you?";
+    case 7: return "Seven in a row! You're on fire! 🔥";
+    default:
+      if (s >= 10) return s + " in a row — absolutely unstoppable! 🏆";
+      return s + " in a row! Keep it rolling…";
+  }
+}
+
 const MAX_MISSES = 9;
 const NUM_PARTS = 9;
 
@@ -708,6 +724,7 @@ let guessed = new Set();
 let wrong = [];
 let over = false;
 let wins = 0, losses = 0;
+let streak = 0; // consecutive wins; resets on any dunk
 let pronounceUrl = null;
 
 async function fetchDefinition(word) {
@@ -1023,10 +1040,11 @@ function checkWin() {
     over = true;
     stopTimer();
     wins++;
+    streak++;
     winsEl.textContent = wins;
     logGame("Win");
     statusEl.className = "status win";
-    statusEl.textContent = (charMode === "her" ? "She stays dry!" : "He stays dry!") + " The word was " + secret + ".";
+    statusEl.textContent = (charMode === "her" ? "She stays dry!" : "He stays dry!") + " The word was " + secret + ". " + winCheer(streak);
     lockKeyboard();
     applyDefinition();
     fireworks();
@@ -1039,6 +1057,7 @@ function checkLose() {
     over = true;
     stopTimer();
     losses++;
+    streak = 0;
     lossesEl.textContent = losses;
     logGame("Loss");
     triggerDunk();
@@ -1060,6 +1079,7 @@ function giveUp() {
   over = true;
   stopTimer();
   losses++;
+  streak = 0;
   lossesEl.textContent = losses;
   logGame("Gave Up");
   triggerDunk();
@@ -1109,6 +1129,7 @@ function startTimer() {
       if (!over) {
         over = true;
         losses++;
+        streak = 0;
         lossesEl.textContent = losses;
         logGame("Time's Up");
         triggerDunk();
