@@ -652,6 +652,30 @@ function pickAvoidingRecent(pool) {
   return chosen;
 }
 
+// Cheer the player on after a dunk. Avoids repeating the last phrase.
+const ENCOURAGEMENTS = [
+  "So close — towel off and try again!",
+  "Every champ takes a dunk. Go again!",
+  "Shake it off — the next word is yours!",
+  "Splash happens! Ready for round two?",
+  "Don't sweat it — you'll nail the next one!",
+  "A little water never stopped a winner!",
+  "Tough one! Dry off and bounce right back.",
+  "You're just warming up — try again!",
+  "Even the best get dunked. Keep going!",
+  "Chin up! The next word doesn't stand a chance.",
+  "That word got lucky. Get 'em next time!",
+  "Wipe the splash off — you've got this!"
+];
+let lastEncouragement = -1;
+function encourage() {
+  let i;
+  do { i = Math.floor(Math.random() * ENCOURAGEMENTS.length); }
+  while (ENCOURAGEMENTS.length > 1 && i === lastEncouragement);
+  lastEncouragement = i;
+  return ENCOURAGEMENTS[i];
+}
+
 const MAX_MISSES = 9;
 const NUM_PARTS = 9;
 
@@ -1019,7 +1043,7 @@ function checkLose() {
     logGame("Loss");
     triggerDunk();
     statusEl.className = "status lose";
-    statusEl.textContent = "Splaaaash! The word was " + secret + ".";
+    statusEl.textContent = "Splaaaash! The word was " + secret + ". " + encourage();
     renderWord(true);
     lockKeyboard();
     applyDefinition();
@@ -1040,7 +1064,7 @@ function giveUp() {
   logGame("Gave Up");
   triggerDunk();
   statusEl.className = "status lose";
-  statusEl.textContent = "Gave up — dunked! The word was " + secret + ".";
+  statusEl.textContent = "Gave up — dunked! The word was " + secret + ". " + encourage();
   renderWord(true);
   lockKeyboard();
   applyDefinition();
@@ -1089,7 +1113,7 @@ function startTimer() {
         logGame("Time's Up");
         triggerDunk();
         statusEl.className = "status lose";
-        statusEl.textContent = "Time's up — dunked! The word was " + secret + ".";
+        statusEl.textContent = "Time's up — dunked! The word was " + secret + ". " + encourage();
         renderWord(true);
         lockKeyboard();
         applyDefinition();
