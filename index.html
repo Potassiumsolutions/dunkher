@@ -972,8 +972,10 @@ function guess(letter) {
   } else {
     if (btn) btn.classList.add("incorrect");
     wrong.push(letter);
-    // Wrong vowels cost two pieces in Hard mode; otherwise one.
-    const cost = (hardMode() && "AEIOU".includes(letter)) ? 2 : 1;
+    // Wrong vowels cost two pieces in Hard mode — unless every consonant is
+    // already guessed, so vowels are the only letters left to try.
+    const onlyVowelsLeft = ![..."BCDFGHJKLMNPQRSTVWXYZ"].some(c => !guessed.has(c));
+    const cost = (hardMode() && "AEIOU".includes(letter) && !onlyVowelsLeft) ? 2 : 1;
     for (let k = 0; k < cost && pieces < NUM_PARTS; k++) {
       pieces++;
       el((charMode === "her" ? "p" : "pm") + pieces).classList.add("show");
