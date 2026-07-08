@@ -635,6 +635,23 @@ Object.keys(WORDS).forEach(k => {
 const ONLINE = "🎲 Random (online)";
 const onlineCache = {};
 
+// Keep the last 100 words so nothing repeats until at least 100 others have appeared.
+const RECENT_MAX = 100;
+let recentWords = [];
+// Pick a random word from `pool`, avoiding recently used ones while staying random.
+function pickAvoidingRecent(pool) {
+  if (!pool || !pool.length) return null;
+  // Never block the whole pool: if it's smaller than 100, avoid as many as we can.
+  const window = Math.min(RECENT_MAX, pool.length - 1);
+  const blocked = new Set(recentWords.slice(-window).map(w => w.toUpperCase()));
+  let candidates = pool.filter(w => !blocked.has(w.toUpperCase()));
+  if (!candidates.length) candidates = pool;
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)].toUpperCase();
+  recentWords.push(chosen);
+  if (recentWords.length > RECENT_MAX) recentWords.shift();
+  return chosen;
+}
+
 const MAX_MISSES = 9;
 const NUM_PARTS = 9;
 
@@ -778,7 +795,7 @@ async function getWord() {
   if (len) list = list.filter(w => w.length === len);
   if (!list.length) return null;
   if (modeSel.value === "hard") list = hardFilter(list);
-  return list[Math.floor(Math.random() * list.length)].toUpperCase();
+  return pickAvoidingRecent(list);
 }
 
 async function getOnlineWord(len) {
@@ -794,7 +811,7 @@ async function getOnlineWord(len) {
     let pool = onlineCache[pattern];
     if (!pool || !pool.length) return null;
     if (modeSel.value === "hard") pool = hardFilter(pool);
-    return pool[Math.floor(Math.random() * pool.length)].toUpperCase();
+    return pickAvoidingRecent(pool);
   } catch (e) {
     return null;
   }
