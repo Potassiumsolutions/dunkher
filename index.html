@@ -424,7 +424,7 @@
     <div class="info-section">
       <div class="info-label">Mode</div>
       <p><b>Easy</b> — picks any word from the selected category.<br>
-        <b>Hard</b> — avoids common letters. The letters <b>R, S, T, L, N,</b> and <b>E</b> are the most frequent in English — in Hard mode, words containing the fewest of these are chosen, so your usual go-to guesses won't help much.</p>
+        <b>Hard</b> — for a tougher challenge. Figure out what makes it harder!</p>
     </div>
 
     <hr class="info-divider">
@@ -722,6 +722,7 @@ const lossesEl = el("losses");
 let secret = "";
 let guessed = new Set();
 let wrong = [];
+let pieces = 0; // body parts revealed (dunk penalty); vowels cost 2 in Hard mode
 let over = false;
 let wins = 0, losses = 0;
 let streak = 0; // consecutive wins; resets on any dunk
@@ -861,6 +862,7 @@ async function getOnlineWord(len) {
 async function newGame() {
   guessed = new Set();
   wrong = [];
+  pieces = 0;
   over = false;
   secret = "";
   pronounceUrl = null;
@@ -868,8 +870,8 @@ async function newGame() {
   setDefinition(null);
   wordWrap.classList.remove("def-open");
   stopTimer();
-  timerWrap.classList.toggle("active", speedMode);
-  if (speedMode) { timeLeft = speedSecs; updateTimerDisplay(); }
+  timerWrap.classList.toggle("active", isTimed());
+  if (isTimed()) { timeLeft = activeSecs(); updateTimerDisplay(); }
   for (let i = 1; i <= NUM_PARTS; i++) {
     el("p" + i)?.classList.remove("show");
     el("pm" + i)?.classList.remove("show");
@@ -937,7 +939,7 @@ function renderWrong() {
 }
 
 function updateLeft() {
-  leftEl.textContent = MAX_MISSES - wrong.length;
+  leftEl.textContent = MAX_MISSES - pieces;
 }
 
 function buildKeyboard() {
@@ -962,7 +964,7 @@ function guess(letter) {
   const btn = [...kbEl.children].find(b => b.dataset.letter === letter);
   if (btn) btn.disabled = true;
 
-  if (speedMode) startTimer();
+  if (isTimed()) startTimer();
   if (secret.includes(letter)) {
     if (btn) btn.classList.add("correct");
     renderWord();
@@ -970,8 +972,12 @@ function guess(letter) {
   } else {
     if (btn) btn.classList.add("incorrect");
     wrong.push(letter);
-    // Reveal the next piece, in standard order
-    el((charMode === "her" ? "p" : "pm") + wrong.length).classList.add("show");
+    // Wrong vowels cost two pieces in Hard mode; otherwise one.
+    const cost = (hardMode() && "AEIOU".includes(letter)) ? 2 : 1;
+    for (let k = 0; k < cost && pieces < NUM_PARTS; k++) {
+      pieces++;
+      el((charMode === "her" ? "p" : "pm") + pieces).classList.add("show");
+    }
     renderWrong();
     updateLeft();
     checkLose();
@@ -1053,7 +1059,7 @@ function checkWin() {
 }
 
 function checkLose() {
-  if (wrong.length >= MAX_MISSES) {
+  if (pieces >= MAX_MISSES) {
     over = true;
     stopTimer();
     losses++;
@@ -1097,6 +1103,12 @@ let speedSecs = 5;
 let timerTick = null;
 let timeLeft = 0;
 
+// Hard mode is timed at a fixed 5s per guess (a hidden part of the challenge).
+const HARD_SECS = 5;
+function hardMode() { return modeSel.value === "hard"; }
+function isTimed() { return speedMode || hardMode(); }
+function activeSecs() { return hardMode() ? HARD_SECS : speedSecs; }
+
 const timerWrap  = el("timerWrap");
 const timerBar   = el("timerBar");
 const timerLabel = el("timerLabel");
@@ -1106,7 +1118,7 @@ const speedSlider = el("speedSlider");
 const speedVal    = el("speedVal");
 
 function updateTimerDisplay() {
-  const pct = (timeLeft / speedSecs) * 100;
+  const pct = (timeLeft / activeSecs()) * 100;
   timerBar.style.width = pct + "%";
   timerBar.className = "timer-bar" + (pct <= 25 ? " danger" : pct <= 50 ? " warn" : "");
   timerLabel.textContent = timeLeft + "s";
@@ -1119,7 +1131,7 @@ function stopTimer() {
 
 function startTimer() {
   stopTimer();
-  timeLeft = speedSecs;
+  timeLeft = activeSecs();
   updateTimerDisplay();
   timerTick = setInterval(() => {
     timeLeft--;
@@ -1182,7 +1194,7 @@ function applyChar(mode) {
     : "DunkHim • Head → Body → Arms → Legs → Bow Tie → Trunks → Hat (9 pieces)";
   el("settHer").classList.toggle("active", isHer);
   el("settMan").classList.toggle("active", !isHer);
-  for (let i = 1; i <= wrong.length; i++) el((isHer ? "p" : "pm") + i)?.classList.add("show");
+  for (let i = 1; i <= pieces; i++) el((isHer ? "p" : "pm") + i)?.classList.add("show");
   // Sync dunk group visibility
   document.getElementById("personGroupHer").style.display = isHer ? "" : "none";
   document.getElementById("personGroupMan").style.display = isHer ? "none" : "";
